@@ -47,7 +47,11 @@
                     </div>
                 </div>
             </div>
-            {{editor biographyHTML target="system.biography" button=true editable=editable engine="prosemirror"}}
+            {{#if biographyHTML}}
+                {{editor biographyHTML target="system.biography" button=true editable=editable engine="prosemirror"}}
+            {{else}}
+                {{editor target="system.biography" button=true editable=editable engine="prosemirror"}}
+            {{/if}}
         </div>
 
         {{!-- Summary Tab --}}
@@ -129,31 +133,32 @@
                 <div class="attributes">
                     <table class="affinities" style="border:none;">
                         <tr>
-                            <th><span class="attribute-label rollable" data-roll="1d10" data-label="might_test">Might:</span></th>
+                            <th><a class="attribute-label roll-might"><u>Might:</u></a></th>
                             <th><input type="number" name="system.attribute.might.value" value="{{systemData.attribute.might.value}}"/></th>
                         </tr>
                         <tr>
-                            <th>Vitality:</th>
+                            <th><a class="attribute-label roll-vitality"><u>Vitality:</u></a></th>
                             <th><input type="number" name="system.attribute.vitality.value" value="{{systemData.attribute.vitality.value}}"/></th>
                         </tr>
                         <tr>
-                            <th>Agility:</th>
+                            <th><a class="attribute-label roll-agility"><u>Agility:</u></a></th>
                             <th><input type="number" name="system.attribute.agility.value" value="{{systemData.attribute.agility.value}}"/></th>
                         </tr>
                         <tr>
-                            <th>Intellect:</th>
+                            <th><a class="attribute-label roll-intellect"><u>Intellect:</u></a></th>
                             <th><input type="number" name="system.attribute.intellect.value" value="{{systemData.attribute.intellect.value}}"/></th>
                         </tr>
                         <tr>
-                            <th>Instinct:</th>
+                            <th><a class="attribute-label roll-instinct"><u>Instinct:</u></a></th>
                             <th><input type="number" name="system.attribute.instinct.value" value="{{systemData.attribute.instinct.value}}"/></th>
                         </tr>
                         <tr>
-                            <th>Persona:</th>
+                            <th><a class="attribute-label roll-persona"><u>Persona:</u></a></th>
                             <th><input type="number" name="system.attribute.persona.value" value="{{systemData.attribute.persona.value}}"/></th>
                         </tr>
                     </table>
                     <hr style="border-color: #efc281; border-width: 1px;">
+                    <div class="misc_summary_data" style="font-weight: bold;"><span>Excellence:</span><input type="number" name="system.excellence" value="{{systemData.excellence}}"/></div>
                     <div class="misc_summary_data" style="font-weight: bold;"><span>Injuries:</span><input type="number" name="system.injuries" value="{{systemData.injuries}}"/></div>
                     <div class="misc_summary_data" style="font-weight: bold;"><span>Anxieties:</span><input type="number" name="system.anxieties" value="{{systemData.anxieties}}"/></div>
                     <hr style="border-color: #efc281; border-width: 1px;">
@@ -175,11 +180,19 @@
                 <div class="battle_abilities">
                     <input type="text" name="system.battle_ability_1.name" value="{{systemData.battle_ability_1.name}}" placeholder="Battle Ability 1" style="height:30px; width:100%"/>
                     <div class="battle_editor_1">
-                        {{editor battle1HTML target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
+                        {{#if battle1HTML}}
+                            {{editor battle1HTML target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
+                        {{else}}
+                            {{editor target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
+                        {{/if}}
                     </div>
                     <input type="text" name="system.battle_ability_2.name" value="{{systemData.battle_ability_2.name}}" placeholder="Battle Ability 2" style="height:30px; width:100%"/>
                     <div class="battle_editor_2">
-                        {{editor battle2HTML target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
+                        {{#if battle2HTML}}
+                            {{editor battle2HTML target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
+                        {{else}}
+                            {{editor target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
+                        {{/if}}
                     </div>
                 </div>
             </div>
@@ -198,10 +211,21 @@
                         </div>
                         <img class="skill_light_icon" src="systems/sotc/assets/sheets/LightIcon.webp">
                         <h4 class="skill_light_char">{{skill.system.light_cost}}</h4>
-                        <h4 class="skill_name_char" style="text-align: center; text-shadow: black 1px 0 10px, black 1px 0 10px;">{{skill.name}}</h4>
+                        <h4 class="skill_name_char" style="text-align: center; text-shadow: black 1px 0 10px, black 1px 0 10px, black 1px 0 10px, black 1px 0 10px; width: 70%;">{{skill.name}}</h4>
+                        <div class="skill_limit">
+                            {{#if skill.system.limit.max}}
+                                <input type="number" name="items.{{skill._id}}.system.limit.value" value="{{skill.system.limit.value}}" style="width:15px; position: absolute; right: 3px; border: none;box-shadow: none;">
+                                <span style="position: absolute; top: 5px; right: 6px;">/</span>
+                                <span class="skill_limit_max" style="position: absolute; top: 8px; right: 0px;">{{skill.system.limit.max}}</span>
+                            {{/if}}
+                        </div>
                         <div class="skill_roll_container" style="width: 50%; height: 50%;">
                             <img src="systems/sotc/assets/sheets/dice_size.webp" class="skill_roll-button rollable" data-index="{{i}}" alt="Roll" style="width: auto; height: 40px; font-size: 40px; cursor: pointer; border: none;">
                         </div>
+                        {{#if skill.system.emotion_cost}}
+                            <img class="skill_emotion_icon" src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
+                            <h4 class="skill_emotion_char">{{skill.system.emotion_cost}}</h4>
+                        {{/if}}
                         <div class="edit_and_delete"> 
                             <a class="skill_card-control edit-skill_card"><i class="fas fa-edit"></i></a>
                             <a class="skill_card-control duplicate-skill_card"><i class="fas fa-clone"></i></a>
@@ -236,6 +260,10 @@
                             <div class="skill_roll_container" style="width: 50%; height: 50%;">
                                 <img src="systems/sotc/assets/sheets/dice_size.webp" class="skill_roll-button rollable" data-index="{{i}}" alt="Roll" style="width: auto; height: 40px; font-size: 40px; cursor: pointer; border: none;">
                             </div>
+                            {{#if ego.system.emotion_cost}}
+                                <img class="skill_emotion_icon" src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
+                                <h4 class="skill_emotion_char">{{ego.system.emotion_cost}}</h4>
+                            {{/if}}
                             <div class="edit_and_delete"> 
                                 <a class="skill_card-control edit-skill_card"><i class="fas fa-edit"></i></a>
                                 <a class="skill_card-control duplicate-skill_card"><i class="fas fa-clone"></i></a>
@@ -347,6 +375,7 @@
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
+                                        <a class="status_card-control print-status_card"><i class="fas fa-print"></i></a>
                                         <a class="status_card-control duplicate-status_card"><i class="fas fa-clone"></i></a>
                                         <a class="status_card-control delete-status_card"><i class="fas fa-trash"></i></a>
                                     </div>
@@ -415,6 +444,7 @@
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
+                                        <a class="status_card-control print-status_card"><i class="fas fa-print"></i></a>
                                         <a class="status_card-control duplicate-status_card"><i class="fas fa-clone"></i></a>
                                         <a class="status_card-control delete-status_card"><i class="fas fa-trash"></i></a>
                                     </div>
@@ -485,6 +515,7 @@
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
+                                        <a class="status_card-control print-status_card"><i class="fas fa-print"></i></a>
                                         <a class="status_card-control duplicate-status_card"><i class="fas fa-clone"></i></a>
                                         <a class="status_card-control delete-status_card"><i class="fas fa-trash"></i></a>
                                     </div>
@@ -553,6 +584,7 @@
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
+                                        <a class="status_card-control print-status_card"><i class="fas fa-print"></i></a>
                                         <a class="status_card-control duplicate-status_card"><i class="fas fa-clone"></i></a>
                                         <a class="status_card-control delete-status_card"><i class="fas fa-trash"></i></a>
                                     </div>
@@ -640,7 +672,7 @@
     </section>
 
     {{!-- Sheet Tab Navigation --}}
-    <nav class="sheet-tabs tabs" data-group="primary">
+    <nav class="sheet-tabs tabs" data-group="primary" style="color: #efc281;">
         <a class="item" data-tab="summary">Summary</a>
         <a class="item" data-tab="skills">Skills</a>
         <a class="item" data-tab="ego">EGO</a>

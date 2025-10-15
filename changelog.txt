@@ -1,0 +1,31 @@
+Version 1.03
+
+First and foremost!
+- Fixed a bug where speed dice would always default to rolling a 1d6 unless the token had haste or bind!
+
+Mechanical and QOL Changes
+- Updated statuses to have high-fidelity icons and added a bunch of icons from Limbus (credits to Lunartique and, of course, Project Moon)
+- Attempts can now be rolled from the character sheet by clicking on the stat you wish to roll with. This does NOT yet take into account injuries/anxieties
+- Added a spot to track excellence
+- Skills now display emotion cost and limited uses where they are listed on the character sheet
+- Status effects can now be rolled to the chat for all your gimmicking needs
+- All statuses now include an additional box for description even if they have a numeric effect, such as with Sinking (I didn't write in the details though...)
+- Added "Health AND Stagger Affinity" as a target for status effects (still purely cosmetic)
+- Added a trigger & halve button for Bleed (I think?)
+- Added a delete confirmation dialog for all items on the character sheet
+- Moved the default skill icon image into a folder with all the Ruina skill pages
+
+Other Bugs:
+- Fixed a bug where passives could not be dragged from the foundry items list into a sheet
+- Fixed a bug where certain fields, including those for passives, did not render at all in v13. I THINK this fix should work, but as mentioned above I cannot test this myself...
+- Removed a non-load-bearing rabbit
+- Jakka has mentioned a bug where speed dice automation wasn't working for copies of a combatant past the first. I can't say I know why that's happening, but I'm hoping that's fixed with the other speed dice bug I resolved
+- Touched up the character sheet somewhat for some other bugs where text was gray instead of Library of Ruina gold
+
+FUTURE Changes (soon, I hope):
+- NPC Sheet
+- Draggable skills/passives/statuses and everything foundry considers to be an item
+- Automation of anxieties and injuries for attempts
+- Indicator of Max/Min roll on a dice to point out crits
+- Dynamic modification of stats like damage affinities to reflect passives AND
+- Button-press application of damage/stagger to a character after roll, hypothetically allowing for defensive dice or bonuses to damage/stagger to be recognized

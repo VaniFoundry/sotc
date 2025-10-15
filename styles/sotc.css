@@ -350,12 +350,49 @@
   text-align: center;
   text-shadow: #fc0 1px 0 10px, #fc0 1px 0 10px;
 }
+.skill_limit {
+  position: absolute;
+  z-index: 3;
+  right: 3px;
+  height: 25px;
+  color: black;
+  text-shadow: #fc0 1px 0 5px, #fc0 1px 0 5px, #fc0 1px 0 5px, #fff 1px 0 5px;
+  box-shadow: none;
+}
+.skill_limit input {
+  text-shadow: #fc0 1px 0 5px, #fc0 1px 0 5px, #fc0 1px 0 5px, #fff 1px 0 5px;
+  box-shadow: none;
+}
 .skill_name_char,
 .skill_roll_container,
-.edit_and_delete {
+.edit_and_delete{
   position: relative;
   z-index: 3;
   pointer-events: auto;
+}
+.skill_emotion_icon {
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
+  height: 40px;
+  width: 40px;
+  z-index: 2;
+  border: none;
+  align-self: flex-start;
+}
+.skill_emotion_char {
+  position: absolute;
+  bottom: -4px;
+  left: 1px;
+  height: 35px;
+  width: 35px;
+  z-index: 3;
+  font-family: "skill_font", sans-serif;
+  font-size: 250%;
+  color: black;
+  align-self: flex-start;
+  text-align: center;
+  text-shadow: white 1px 0 10px, white 1px 0 10px, white 1px 0 10px;
 }
 .skill_mini_image_border img {
   width: 100%;
@@ -526,7 +563,10 @@
 .sotc .editor,
 .sotc .editor-content {
   height: 100%;
-  color: inherit;
+  color: #efc281;
+}
+.prosemirror .editor-content {
+  background-color: rgba(0,0,0,0.4);
 }
 .sotc.sheet.actor {
   min-width: 560px;
@@ -839,7 +879,13 @@
 }
 .sotc_skill_roll_dialog .dialog,
 .sotc_skill_roll_dialog .dialog-content,
-.sotc_skill_roll_dialog .window-content {
+.sotc_skill_roll_dialog .window-content,
+.sotc_attribute_roll_dialog .dialog,
+.sotc_attribute_roll_dialog .dialog-content,
+.sotc_attribute_roll_dialog .window-content,
+.sotc_generic_roll_dialog .dialog,
+.sotc_generic_roll_dialog .dialog-content,
+.sotc_generic_roll_dialog .window-content {
   padding: 0px;
   background-color: black;
   color: #efc281;
@@ -865,7 +911,9 @@
   filter: drop-shadow(0 0 5px #ffd700) brightness(1.3);
   transform: scale(1.05);
 }
-.sotc_skill_roll_dialog .dialog-buttons {
+.sotc_skill_roll_dialog .dialog-buttons,
+.sotc_attribute_roll_dialog .dialog-buttons,
+.sotc_generic_roll_dialog .dialog-buttons {
   border-top: none;
   padding: 5px;
   display: flex;
@@ -883,12 +931,13 @@
 
 .status {
   margin: 10px;
+  overflow: hidden;
 }
 .sotc.sheet.item.status {
   min-width: 656px;
   width: 656px;
-  min-height: 320px;
-  height: 320px;
+  min-height: 352px;
+  height: 480px;
 }
 .status select,
 .status input,
@@ -905,11 +954,9 @@
   color: black;
 }
 .status_div {
-  display: flex;
-  justify-content: flex-start;
+  overflow: auto;
   width: 100%;
   height: 100%;
-  margin-top: 16px;
   margin-left: 16px;
   gap: 4px;
 }
@@ -966,7 +1013,7 @@
 }
 .status_card {
   display: flex;
-  width: 85%;
+  width: 95%;
 }
 .status_mini_image {
   display: flex;
@@ -1023,13 +1070,13 @@
 }
 .status_edit_and_delete {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   gap: 5px;
-  font-size: 10px;
-  width: 10%;
+  font-size: 12px;
+  width: 20%;
   height: 46px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .status_passive_effect {
   margin-left: 8px;

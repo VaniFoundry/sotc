@@ -17,19 +17,22 @@ Feature Forecast
 	- Actual activation of on use and after use as more than text
 	- Easy implementation of [check] tags
  - Implementation of blaze, maybe? The problem is that, even though I could nuke every npc with burn pretty easily I'd need to get an IFF system
- - Improved skill visuals for dice display, module tracking, other cosmetic modifications <- Implemented, though not admirably
  - Maybe eventually make passive entries also be able to apply bonuses, like Ruina keypages would
  - Add level up mechanics for minor improvements
  - Add language support for any requested languages
- - Make the attributes rollable
- - Rework statuses to use foundry default status system for module compatability
+ - Rework statuses to use foundry default status system for module compatability <- I hate that I once wrote this
  - The mess that is turn-end effects, like light regen or status effects. Bleh...
  - Trackers, like for whether an ego passive is active or not
  - Option to print-out status effects to chat (currently I encourage you to just have the description written separately as a passive saying something
 	like "Unit X applies Y effect with some skills. Y effect does Z."
+ - NPC Sheet
+ - Draggable skills/passives/statuses and everything foundry considers to be an item
+ - Automation of anxieties and injuries for attempts
+ - Indicator of Max/Min roll on a dice to point out crits
+ - Dynamic modification of stats like damage affinities to reflect passives AND
+ - Button-press application of damage/stagger to a character after roll, hypothetically allowing for defensive dice or bonuses to damage/stagger to be recognized
 
 Requested Changes
- - Jakka: Add a category for status effects that is "Other" or "Special", for things that are none of the major 4
  - Tsuchigumo and TrueQueenOfRose: Let status effects target/be applied to skills on the character's sheet, for effects like Ember or Pebble or Lock
 					the intention being to either mechanically change power, light cost, or mechanically change something on roll
 
@@ -55,3 +58,7 @@ v1.02
  - Made the initiative tracker better
  - Made passive status effects that target dice rolls apply automatically
  - More stuff in the discord post that I cannot be bothered to rewrite here. It's 3am, man.
+
+v1.03
+ - I'm not gonna clutter this up too much, so I've added a changelog .txt instead. Is that good form? Idk. 
+ - Oh hey look, on the last update I also said it was 3am. It's 3am again now! Haha!

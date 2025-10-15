@@ -47,12 +47,12 @@ Hooks.once("init", async function() {
         const actor_formula = c.actor?.system?.speed_dice?.dice_size;
         const actor_type = c.actor?.system?.initiative_type;
         const init_mod = c.actor?.system?.modifiers.speed_mod ?? 0;
-        let total_formula;
+        let total_formula = `${actor_formula}`;
         if (init_mod > 0) {
-          total_formula = `${actor_formula}+${init_mod}`;
+          total_formula = `${total_formula}+${init_mod}`;
         } 
         else if (init_mod < 0) {
-          total_formula = `${actor_formula}-${-init_mod}`;
+          total_formula = `${total_formula}-${-init_mod}`;
         }
         // const isSpeedDie = c.flags?.sotc?.isSpeedDieClone; <- Not Needed in the current version 
         const final_formula = (total_formula && Roll.validate(total_formula))

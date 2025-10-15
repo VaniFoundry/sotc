@@ -42,16 +42,91 @@ export class SotCStatusSheet extends ItemSheet {
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".post_actives-control").click(this._onActivesControl.bind(this));
+
+    html.find(".print-status_card").click(this._printStatus.bind(this));
   }
 
-  /* -------------------------------------------- */
+  async _printStatus(event) {
+    event.preventDefault();
+    const status = this.item;
 
-  /** @override */
-  _getSubmitData(updateData) {
-    let formData = super._getSubmitData(updateData);
-    formData = EntitySheetHelper.updateAttributes(formData, this.object);
-    formData = EntitySheetHelper.updateGroups(formData, this.object);
-    return formData;
+    if (!status) return ui.notifications.error("No status data found.");
+
+    const s = status.system;
+    const name = status.name;
+    const icon = status.img ? `<img src="${status.img}" width="auto" height="32px" style="vertical-align: middle; margin-right: 4px; border: none;">` : "";
+    let type = s.types || "other";
+    const first_letter = type.charAt(0)
+    const remaining_letters = type.substring(1)
+    type = first_letter.toUpperCase() + remaining_letters
+    const condition = s.condition || "";
+    const potencyFlat = s.potency_flat ?? 0;
+    const potency = s.potency ?? 0;
+    const effect = s.effect || "";
+    let target = s.target || "";
+    if (target === "hp") {
+      target = "HP"
+    }
+    const special = s.special?.trim();
+
+    let message = "";
+    let flat_message = ``
+    if (potencyFlat) {
+      flat_message = `by <b>${potencyFlat}</b> flat, and`
+    }
+
+    switch (condition) {
+      case "passive":
+        message = `
+          <div class="status-chat">
+            <h2>${icon}${name}</h2>
+            <p><b>Type:</b> ${type}</p>
+            <b>Description:</b>
+            <p>Passively ${effect} ${target} ${flat_message} by <b>${potency}</b> per count.</p>
+            ${special ? `<p>${special}</p>` : ""}
+          </div>
+        `;
+        break;
+
+      case "active":
+        message = `
+          <div class="status-chat">
+            <h2>${icon}${name}</h2>
+            <p><b>Type:</b> ${type}</p>
+            <b>Description:</b>
+            <p>On Trigger ${effect} ${target} ${flat_message} by <b>${potency}</b> per count.</p>
+            ${special ? `<p>${special}</p>` : ""}
+          </div>
+        `;
+        break;
+
+      case "special":
+        message = `
+          <div class="status-chat">
+            <h2>${icon}${name}</h2>
+            <p><b>Type:</b> ${type}</p>
+            <b>Description:</b>
+            ${special ? `<p>${special}</p>` : "<p><i>Missing Description.</i></p>"}
+          </div>
+        `;
+        break;
+
+      default:
+        message = `
+          <div class="status-chat">
+            <h3>${icon}${name} <small>(${type})</small></h3>
+            <p><i>Missing Effect Details.</i></p>
+          </div>
+        `;
+        break;
+    }
+
+    // Post to chat
+    ChatMessage.create({
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: message,
+    });
   }
   
   async _onActivesControl(event) {

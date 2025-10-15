@@ -27,10 +27,15 @@ export class SotCPassiveSheet extends ItemSheet {
     context.sheetEditMode = this.item.getFlag("sotc", "sheetEditMode") || false;
     context.dtypes = ATTRIBUTE_TYPES;
     // Again, not sure if I even need this but I don't want to test removing it. The commenting is easier than the removing it
-    context.detailsHTML = await TextEditor.enrichHTML(context.systemData.details, {
-      secrets: this.document.isOwner,
-      async: true
-    });
+    // Haha! I have figured it out. I need some stuff added for v11-12, or rather to make my v11-12 stuff work with v13. Is this why pathfinder is still stuck on v11? Lazy buggers.
+    const fv = foundry.utils?.isNewerVersion ? game.version : game.release?.generation;
+    const major_version = parseInt(fv) || game.release?.generation || 11;
+    if (major_version < 13) {
+      context.detailsHTML = await TextEditor.enrichHTML(context.systemData.details ?? "", {
+        secrets: this.document.isOwner,
+        async: true
+      });
+    }
     return context;
   }
 
@@ -59,6 +64,7 @@ export class SotCPassiveSheet extends ItemSheet {
         <div class="sotc-passive-details">${details}</div>
       </div>
     `;
+
 
     return ChatMessage.create({
       user: game.user.id,

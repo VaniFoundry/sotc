@@ -24,33 +24,34 @@ export class SotCActorSheet extends ActorSheet {
 
   /** @inheritdoc */
   async getData(options) {
-  const context = await super.getData(options);
-  EntitySheetHelper.getAttributeData(context.data);
-  context.shorthand = !!game.settings.get("sotc", "macroShorthand");
-  context.systemData = context.data.system;
-  context.dtypes = ATTRIBUTE_TYPES;
+    const context = await super.getData(options);
+    EntitySheetHelper.getAttributeData(context.data);
+    context.shorthand = !!game.settings.get("sotc", "macroShorthand");
+    context.systemData = context.data.system;
+    context.dtypes = ATTRIBUTE_TYPES;
 
-  // Define our item types
-  context.skills = this.actor.items.filter(i => i.type === "skill");
-  context.egos = this.actor.items.filter(i => i.type === "ego");
-  context.statuses = this.actor.items.filter(i => i.type === "status");
-  context.passives = this.actor.items.filter(i => i.type === "passive");
+    // Define our item types
+    context.skills = this.actor.items.filter(i => i.type === "skill");
+    context.egos = this.actor.items.filter(i => i.type === "ego");
+    context.statuses = this.actor.items.filter(i => i.type === "status");
+    context.passives = this.actor.items.filter(i => i.type === "passive");
 
-  // Make these elements from actor-sheet.html render properly. I'm not sure if I even need these, didn't I switch to prosemirrors?
-  context.biographyHTML = await TextEditor.enrichHTML(context.systemData.biography, {
-    secrets: this.document.isOwner,
-    async: true
-  });
-  context.battle1HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_1.details, {
-    secrets: this.document.isOwner,
-    async: true
-  });
-  context.battle2HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_2.details, {
-    secrets: this.document.isOwner,
-    async: true
-  });
-
-  return context;
+    // Make these elements from actor-sheet.html render properly. I'm not sure if I even need these, didn't I switch to prosemirrors?
+    // Look at this idiot. Not a knower at all. Yeah they're prosemirrors, but they need to have some rendering done for v11-12 (and not for v13)
+    const fv = foundry.utils?.isNewerVersion ? game.version : game.release?.generation;
+    const major_version = parseInt(fv) || game.release?.generation || 11;
+    if (major_version < 13) {
+      context.biographyHTML = await TextEditor.enrichHTML(context.systemData.biography ?? "", {
+        async: true
+      });
+      context.battle1HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_1.details ?? "", {
+        async: true
+      });
+      context.battle2HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_2.details ?? "", {
+        async: true
+      });
+    }
+    return context;
   }
 
   /* -------------------------------------------- */
@@ -87,6 +88,14 @@ export class SotCActorSheet extends ActorSheet {
         ev.dataTransfer.setData('text/plain', JSON.stringify(dragData));
       }, false);
     });
+
+    // Time to uhh, finally implement the other part of the system. You can tell what this does, I hope
+    html.find(".roll-might").click(ev => this._onAttributeRoll(ev, "might"));
+    html.find(".roll-vitality").click(ev => this._onAttributeRoll(ev, "vitality"));
+    html.find(".roll-agility").click(ev => this._onAttributeRoll(ev, "agility"));
+    html.find(".roll-intellect").click(ev => this._onAttributeRoll(ev, "intellect"));
+    html.find(".roll-instinct").click(ev => this._onAttributeRoll(ev, "instinct"));
+    html.find(".roll-persona").click(ev => this._onAttributeRoll(ev, "persona"));
 
     /** 
      * The below function has been temporarily excised because I couldn't get the function it was supporting to work properly. This DID work fine... maybe... I don't know...
@@ -138,10 +147,10 @@ export class SotCActorSheet extends ActorSheet {
     // Check for which button is used and in any given case
     if (button.classList.contains("add-skill_card")) {
       const cls = getDocumentClass("Item");
-      return cls.create({name: game.i18n.localize("SOTC.ItemNew"), type: "skill", img: "systems/sotc/assets/sheets/skills/default skill icon.png"}, {parent: this.actor});
+      return cls.create({name: game.i18n.localize("SOTC.ItemNew"), type: "skill", img: "systems/sotc/assets/Raw Ruina Assets/Pages/default skill icon.png"}, {parent: this.actor});
     } else if (button.classList.contains("add-ego_card")) {
       const cls = getDocumentClass("Item");
-      return cls.create({name: game.i18n.localize("SOTC.ItemNew"), type: "ego", img: "systems/sotc/assets/sheets/skills/default skill icon.png"}, {parent: this.actor});
+      return cls.create({name: game.i18n.localize("SOTC.ItemNew"), type: "ego", img: "systems/sotc/assets/Raw Ruina Assets/Pages/default skill icon.png"}, {parent: this.actor});
     }
 
     if (!item) {
@@ -163,7 +172,13 @@ export class SotCActorSheet extends ActorSheet {
 
     // I should probably add a dialog option that gives a warning or requests a confirmation. Missclicking this would suck major major
     if (button.classList.contains("delete-skill_card")) {
-      return item.delete();
+      return Dialog.confirm({
+        title: "Delete Status?",
+        content: `<p>Are you sure you want to delete <strong>${item.name}</strong>?</p>`,
+        yes: () => item.delete(),
+        no: () => {},
+        defaultYes: false,
+      });
     }
   }
 
@@ -672,6 +687,15 @@ export class SotCActorSheet extends ActorSheet {
       return item.sheet.render(true);
     }
 
+    if (button.classList.contains("print-status_card")) {
+      const sheet = item.sheet;
+      if (sheet && typeof sheet._printStatus === "function") {
+        return sheet._printStatus(event);
+      }
+      ui.notifications.warn("This status does not have a printable sheet.");
+      return;
+    }
+
     if (button.classList.contains("duplicate-status_card")) {
       const data = duplicate(item.toObject());
       delete data._id;
@@ -679,7 +703,13 @@ export class SotCActorSheet extends ActorSheet {
     }
 
     if (button.classList.contains("delete-status_card")) {
-      return item.delete();
+      return Dialog.confirm({
+        title: "Delete Status?",
+        content: `<p>Are you sure you want to delete <strong>${item.name}</strong>?</p>`,
+        yes: () => item.delete(),
+        no: () => {},
+        defaultYes: false,
+      });
     }
   }
 
@@ -698,10 +728,13 @@ export class SotCActorSheet extends ActorSheet {
 
     // Trigger effect, like tremor burst or bleed or whatever you want
     const effect_type = item.system.effect;
+    const flat_change = Number(item.system.potency_flat ?? 0)
     const potency = Number(item.system.potency ?? 1);
     const count = Number(item.system.count ?? 0);
-
-    const delta = count * potency;
+    let delta = 0
+    if (count) {
+      delta = count * potency + flat_change;
+    }
     const sign = effect_type === "Decrease" ? -1 : 1;
 
     const updates = {};
@@ -771,7 +804,13 @@ export class SotCActorSheet extends ActorSheet {
     }
 
     if (button.classList.contains("delete-passive_card")) {
-      return item.delete();
+      return Dialog.confirm({
+        title: "Delete Status?",
+        content: `<p>Are you sure you want to delete <strong>${item.name}</strong>?</p>`,
+        yes: () => item.delete(),
+        no: () => {},
+        defaultYes: false,
+      });
     }
 
     // Call helper (below) to print the passive details off. It's very simple all, considered
@@ -847,6 +886,93 @@ export class SotCActorSheet extends ActorSheet {
     });
   }
 
+  /* -------------------------------------------- */
+  // The following two handle the rolling, first creating the dialog then rolling based on that dialog
+
+  async _onAttributeRoll(event, attribute_key) {
+    event.preventDefault();
+    const actor = this.actor;
+    const attribute = getProperty(actor.system, `attribute.${attribute_key}.value`) || 0;
+
+    // Build dialog HTML
+    const content = `
+      <form class="test_dialog" style="background-color: black; color: #efc281; padding: 0px;">
+        <div class="test_dialog_box" style="padding: 8px;">
+          <h2>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h2>
+          <div style="text-align: center; margin-top: 8px; display: flex;">
+            <span style="align-self: center;">Number of Dice: </span>
+            <div style="flex: 1;display: flex;flex-direction: column;">
+              <div class="flexrow">
+                <span style="flex: 1; text-align: center;">1</span>
+                <span style="flex: 1; text-align: center;"></span>
+                <span style="flex: 1; text-align: center;">2</span>
+                <span style="flex: 1; text-align: center;"></span>
+                <span style="flex: 1; text-align: center;">3</span>
+                <span style="flex: 1; text-align: center;"></span>
+                <span style="flex: 1; text-align: center;">4</span>
+              </div>
+              <input type="range" class="num_attempts" min="1" max="4" value="1" style="background: transparent; height: 20px; width: 90%; margin: 0; align-self: center;">
+            </div>
+          </div>
+        </div>
+      </form>
+    `;
+
+    new Dialog({
+      title: `${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt`,
+      content,
+      buttons: {
+        roll: {
+          label: "Roll",
+          callback: async html => {
+            const num_attempts = Number(html.find(".num_attempts").val()) || 1;
+            await this._rollAttribute(attribute_key, attribute, num_attempts);
+          }
+        },
+        cancel: { label: "Cancel" }
+      },
+      default: "roll"
+    }, {
+      classes: ["sotc_attribute_roll_dialog"]  // allows our custom black background styling
+    }).render(true);
+    
+  }
+
+  async _rollAttribute(attribute_key, attribute_value, num_attempts) {
+    // Roll num_attempts d10s
+    const roll = new Roll(`${num_attempts}d10`);
+    await roll.evaluate({ async: true });
+
+    // Collect results
+    const results = roll.dice[0].results.map(r => r.result);
+    const success = results.some(r => r <= attribute_value);
+
+    const result_text = success ? "<span style='color: #00aa00;'>SUCCESS</span>" : "<span style='color: #ff4444;'>FAILURE</span>";
+
+    const roll_HTML = await roll.render();
+
+    // Build message
+    const message = `
+      <div class="attribute-roll">
+        <h3>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h3>
+        <p>${num_attempts}d10 vs. ${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} (${attribute_value})</p>
+        <p>Results: [ ${results.join(", ")} ]</p>
+        <h4 style="margin-bottom: 4px;">${result_text}</h4>
+        ${roll_HTML}
+      </div>
+    `;
+
+    const rollMode = game.settings.get("core", "rollMode");
+    ChatMessage.create({
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: message,
+      rolls: [roll],
+      type: CONST.CHAT_MESSAGE_TYPES.ROLL,
+      whisper: rollMode === "private" || rollMode === "gmroll" ? ChatMessage.getWhisperRecipients("GM") : [],
+      blind: rollMode === "blindroll",
+    });
+  }
   /* -------------------------------------------- */
 
   /** @inheritdoc */

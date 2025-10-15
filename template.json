@@ -124,7 +124,8 @@
             }],
             "is_player": 1,
             "injuries": 0,
-            "anxieties": 0
+            "anxieties": 0,
+            "excellence": 0
         },
         "npc": {
             "templates": ["base"],
@@ -187,7 +188,7 @@
         "passive": {
             "name": "",
             "details": "",
-            "type": ["passive", "biography"]
+            "type": "passive"
         }
     }
 }

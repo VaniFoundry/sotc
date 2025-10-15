@@ -40,6 +40,7 @@
                                     <option value="" {{#if (eq systemData.target "")}}selected{{/if}}></option>
                                     <option value="damage affinities" {{#if (eq systemData.target "damage affinities")}}selected{{/if}}>Damage Affinity</option>
                                     <option value="stagger affinities" {{#if (eq systemData.target "stagger affinities")}}selected{{/if}}>Stagger Affinity</option>
+                                    <option value="damage and stagger affinities" {{#if (eq systemData.target "damage and stagger affinities")}}selected{{/if}}>Damage & Stagger Affinity</option>
                                     <option value="all dice power" {{#if (eq systemData.target "all dice power")}}selected{{/if}}>All Dice Power</option>
                                     <option value="offensive power" {{#if (eq systemData.target "offensive power")}}selected{{/if}}>Offensive Dice Power</option>
                                     <option value="defensive power" {{#if (eq systemData.target "defensive power")}}selected{{/if}}>Defensive Dice Power</option>
@@ -61,9 +62,8 @@
                             <span>flat, and by </span>
                             <input type="number" name="system.potency" value="{{systemData.potency}}" style="width: 32px; text-align: center;"/>
                             <span>per status count.</span>
-                        {{else}}
-                            <textarea type="text" name="system.special" placeholder="Write the effect of your status here..." style="height: 128px">{{systemData.special}}</textarea>
                         {{/if}}
+                        <textarea type="text" name="system.special" placeholder="Special / Additional descriptions go here..." style="height: 64px; margin-left: 2px; resize: none;">{{systemData.special}}</textarea>
                         {{#if (eq systemData.condition "active")}}
                             <div class="post_effect_buttons">
                                 <div style="margin-top: 8px; margin-bottom: 4px;">Create the following buttons for triggering the status' effect and changing the count after the effect is triggered.</div>
@@ -89,6 +89,7 @@
                         {{/if}}
                     {{/if}}
                 </div>
+                <a class="status_card-control print-status_card" style="margin-top: 5px;">Print Status <i class="fas fa-print"></i></a>
             </div>
         </div>
     </div>

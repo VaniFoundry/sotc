@@ -24,7 +24,7 @@ export class SotCSkillSheet extends ItemSheet {
   async getData(options) {
     const context = await super.getData(options);
     if (context.data.img === "icons/svg/item-bag.svg") {
-      context.data.img = "systems/sotc/assets/sheets/skills/default skill icon.png";
+      context.data.img = "systems/sotc/assets/Raw Ruina Assets/Pages/default skill icon.png";
     }
     EntitySheetHelper.getAttributeData(context.data);
     context.systemData = context.data.system;
