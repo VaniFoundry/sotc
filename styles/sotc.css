@@ -53,6 +53,7 @@
 }
 .sotc .prosemirror button {
   background: var(--color-control-bg);
+  color: #efc281;
 }
 .sotc form {
   height: 100%;
@@ -642,9 +643,9 @@
   height: auto;
 }
 .sotc .skill .skill_emotion_image {
-  bottom: 0.5%;
-  left: 1.5%;
-  width: 25%;
+  top: -4px;
+  left: -19px;
+  width: 175%;
   height: auto;
 }
 .sotc .skill .left input {
