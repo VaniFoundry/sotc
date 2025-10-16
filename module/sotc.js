@@ -41,13 +41,42 @@ Hooks.once("init", async function() {
     async rollInitiative(ids, { formula = null, updateTurn = true, messageOptions = {} } = {}) {
       ids = typeof ids === "string" ? [ids] : ids;
       const combatants = this.combatants.filter(c => ids.includes(c.id));
-
       const updates = [];
+      
+      function computeSpeedModFromStatuses(actor) {
+        if (!actor) return 0;
+        let speed_mod = 0;
+        const statuses = actor.items.filter(i => i.type === "status" && (i.system?.condition === "passive") && (Number(i.system?.count) > 0));
+        for (const status of statuses) {
+          const { effect, target, potency_flat = 0, potency = 0, count = 0 } = status.system;
+          if (!target) continue;
+          const sign = (effect === "Increase") ? 1 : -1;
+          const bonus = (Number(potency_flat || 0) + Number(potency || 0) * Number(count || 0)) * sign;
+          if (target === "speed") speed_mod += bonus;
+        }
+        return Number(speed_mod) || 0;
+      }
+
       for (let c of combatants) {
-        const actor_formula = c.actor?.system?.speed_dice?.dice_size;
-        const actor_type = c.actor?.system?.initiative_type;
-        const init_mod = c.actor?.system?.modifiers.speed_mod ?? 0;
-        let total_formula = `${actor_formula}`;
+        const actorId = c.actorId;
+        const base_combatant = this.combatants.find(b =>
+        b.actorId === actorId && !b.flags?.sotc?.isSpeedDieClone
+      ) ?? c;
+        
+        const actor = base_combatant.actor;
+        if (!actor) continue;
+        await actor.prepareData();
+        await actor.prepareDerivedData();
+
+        const actor_formula = actor?.system?.speed_dice?.dice_size;
+        let total_formula = `${actor_formula}`
+
+        const status_speed_mod = computeSpeedModFromStatuses(actor);
+        const stored_speed_mod = actor?.system?.modifiers.speed_mod ?? 0;
+        const init_mod = status_speed_mod || stored_speed_mod || 0;
+
+        const actor_type = actor?.system?.initiative_type;
+        
         if (init_mod > 0) {
           total_formula = `${total_formula}+${init_mod}`;
         } 
@@ -59,7 +88,7 @@ Hooks.once("init", async function() {
           ? total_formula
           : formula || CONFIG.Combat.initiative.formula; // This is our given failsafe
 
-        const roll = await new Roll(final_formula).roll({ async: true });
+        const roll = await (new Roll(final_formula).evaluate({ async: true }));
         let final_init = Math.max(1, roll.total);
         if (actor_type === "player") {
           final_init = final_init+0.01
@@ -232,7 +261,10 @@ Hooks.on("getItemDirectoryEntryContext", (html, options) => {
 });
 
 Hooks.on("renderCombatTracker", (app, html, data) => {
-  for (const li of html[0].querySelectorAll(".combatant")) {
+  const root = html instanceof HTMLElement ? html : html[0];
+  if (!root) return;
+
+  for (const li of root.querySelectorAll(".combatant")) {
     const combatantId = li.dataset.combatantId;
     const combatant = game.combat.combatants.get(combatantId);
 
@@ -300,23 +332,26 @@ Hooks.on("createCombatant", async (combatant, options, userId) => {
   if (!actor || !actor.system?.speed_dice) return;
 
   const temp_num_dice = actor.system.speed_dice.num_dice ?? 1;
+  if (temp_num_dice <= 1) return;
 
   // You had to start with 1 combatant already to get more, obv
-  for (let i = 1; i < temp_num_dice; i++) {
-    await combatant.parent.createEmbeddedDocuments("Combatant", [{
-      actorId: actor.id,
-      tokenId: combatant.tokenId,
-      hidden: false,
-      initiative: null,
-      name: `${combatant.name} #${i + 1}`,
-      flags: {
-        sotc: {
-          isSpeedDieClone: true,
-          speedDieIndex: i
+  setTimeout(async () => {
+    for (let i = 1; i < temp_num_dice; i++) {
+      await combatant.parent.createEmbeddedDocuments("Combatant", [{
+        actorId: actor.id,
+        tokenId: combatant.tokenId,
+        hidden: false,
+        initiative: null,
+        name: `${combatant.name} #${i + 1}`,
+        flags: {
+          sotc: {
+            isSpeedDieClone: true,
+            speedDieIndex: i
+          }
         }
-      }
-    }]);
-  }
+      }]);
+    }
+  }, 50);
 });
 
 Hooks.on("deleteCombatant", async (combatant, options, userId) => {
@@ -501,7 +536,9 @@ Hooks.once("ready", () => {
 
 Hooks.on("renderTokenHUD", (hud, html, data) => {
   // Remove the default Foundry status effects button
-  html.find('[data-action="effects"]').remove();
+  const el = html instanceof HTMLElement ? html : html[0];
+  const effectsButton = el.querySelector('[data-action="effects"]');
+  if (effectsButton) effectsButton.remove();
 });
 
 Hooks.on("createActor", async (actor, options, userId) => {
@@ -564,23 +601,25 @@ Hooks.on("renderChatMessage", (message, html) => {
         <div class="skill-die-roll">
           <h3>${item_name} - Reroll ${type}</h3>
           <div style="margin-left:5px;margin-bottom:5px;">
-            <img src="${icon}" alt="${type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
             <span class="${colorClass}" style="margin-left: 5px; vertical-align: middle; font-size: 16px;">
-              <strong style="text-shadow: black 0.5px 0.5px">${total} = ${roll.total}</strong>
-              <a class="reroll-die"
-                data-formula="${formula}"
-                data-type="${type}"
-                data-mod="${mod}"
-                data-statmod="${status_mod}"
-                data-color="${colorClass}"
-                data-modules='${JSON.stringify(modules)}'
-                data-itemname="${item_name}"
-                title="Reroll this die" 
-                style="width: 16px; height: 16px; color: black; margin-left: 8px;">
-                <i class="fas fa-rotate-left"></i>
-              </a>
+              <div style="display: flex; gap: 4px;">
+                <img src="${icon}" alt="${type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
+                <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${total} = ${roll.total}</strong>
+                <a class="reroll-die"
+                  data-formula="${formula}"
+                  data-type="${type}"
+                  data-mod="${mod}"
+                  data-statmod="${status_mod}"
+                  data-color="${colorClass}"
+                  data-modules='${JSON.stringify(modules)}'
+                  data-itemname="${item_name}"
+                  title="Reroll this die" 
+                  style="width: 16px; height: 16px; color: black; margin-top: 4px; margin-left: 8px;">
+                  <i class="fas fa-rotate-left"></i>
+                </a>
+              </div>
             </span>
-            ${moduleLine ? `<br>${moduleLine}` : ""}
+            ${moduleLine ? `${moduleLine}` : ""}
           </div>
         </div>
       `;

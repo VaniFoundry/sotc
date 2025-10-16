@@ -251,22 +251,24 @@ async _onRollSkillDie(event) {
       <div class="skill-die-roll">
         <h3>${this.item.name}</h3>
         <div style="margin-left: 5px; margin-bottom: 5px;">
-          <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
           <span class="${colorClass}" style="margin-left: 5px; vertical-align: middle; font-size: 16px;">
-            <strong style="text-shadow: black 0.5px 0.5px">${roll_formula}</strong>
-              <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
-                data-formula="${die.formula}"
-                data-mod="0"
-                data-statmod="${status_mod}"
-                data-type="${die.type}"
-                data-color="die-color-${die.type}"
-                data-modules='${JSON.stringify(Object.values(die.mods ?? {}))}'
-                data-itemname="${this.item.name}"
-                style="width: 16px; height: 16px; color: black; margin-left: 8px;">
-                <i class="fas fa-rotate-left"></i>
-              </a>
+            <div style="display: flex; gap: 4px;">
+              <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
+              <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${roll_formula}</strong>
+                <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
+                  data-formula="${die.formula}"
+                  data-mod="0"
+                  data-statmod="${status_mod}"
+                  data-type="${die.type}"
+                  data-color="die-color-${die.type}"
+                  data-modules='${JSON.stringify(Object.values(die.mods ?? {}))}'
+                  data-itemname="${this.item.name}"
+                  style="width: 16px; height: 16px; color: black; margin-top: 4px; margin-left: 8px;">
+                  <i class="fas fa-rotate-left"></i>
+                </a>
+            </div>
           </span>
-          ${moduleLine ? `<br>${moduleLine}` : ""}
+          ${moduleLine ? `${moduleLine}` : ""}
         </div>
       </div>
     `;

@@ -79,7 +79,7 @@ export class SotCStatusSheet extends ItemSheet {
       case "passive":
         message = `
           <div class="status-chat">
-            <h2>${icon}${name}</h2>
+            <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
             <p><b>Type:</b> ${type}</p>
             <b>Description:</b>
             <p>Passively ${effect} ${target} ${flat_message} by <b>${potency}</b> per count.</p>
@@ -91,7 +91,7 @@ export class SotCStatusSheet extends ItemSheet {
       case "active":
         message = `
           <div class="status-chat">
-            <h2>${icon}${name}</h2>
+            <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
             <p><b>Type:</b> ${type}</p>
             <b>Description:</b>
             <p>On Trigger ${effect} ${target} ${flat_message} by <b>${potency}</b> per count.</p>
@@ -103,7 +103,7 @@ export class SotCStatusSheet extends ItemSheet {
       case "special":
         message = `
           <div class="status-chat">
-            <h2>${icon}${name}</h2>
+            <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
             <p><b>Type:</b> ${type}</p>
             <b>Description:</b>
             ${special ? `<p>${special}</p>` : "<p><i>Missing Description.</i></p>"}

@@ -28,9 +28,11 @@ export class SotCPassiveSheet extends ItemSheet {
     context.dtypes = ATTRIBUTE_TYPES;
     // Again, not sure if I even need this but I don't want to test removing it. The commenting is easier than the removing it
     // Haha! I have figured it out. I need some stuff added for v11-12, or rather to make my v11-12 stuff work with v13. Is this why pathfinder is still stuck on v11? Lazy buggers.
-    const fv = foundry.utils?.isNewerVersion ? game.version : game.release?.generation;
-    const major_version = parseInt(fv) || game.release?.generation || 11;
-    if (major_version < 13) {
+    const fv = game.version ?? game?.data?.version;
+    const use_v13 = foundry.utils.isNewerVersion(fv, "12.999");
+    if (use_v13) {
+      context.detailsHTML = context.systemData.details
+    } else {
       context.detailsHTML = await TextEditor.enrichHTML(context.systemData.details ?? "", {
         secrets: this.document.isOwner,
         async: true
@@ -58,9 +60,9 @@ export class SotCPassiveSheet extends ItemSheet {
     // Please make sure to also match this up to the actor-sheet.js details
     const content = `
       <div class="sotc-passive-card">
-        <h2 style="margin:0; color: black; text-shadow: 1px 1px 2px white;">
+        <h3 style="margin:0; color: black; text-shadow: 1px 1px 2px white;">
           ${name}
-        </h2>
+        </h3>
         <div class="sotc-passive-details">${details}</div>
       </div>
     `;

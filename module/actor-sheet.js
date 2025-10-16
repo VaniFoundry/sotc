@@ -38,18 +38,16 @@ export class SotCActorSheet extends ActorSheet {
 
     // Make these elements from actor-sheet.html render properly. I'm not sure if I even need these, didn't I switch to prosemirrors?
     // Look at this idiot. Not a knower at all. Yeah they're prosemirrors, but they need to have some rendering done for v11-12 (and not for v13)
-    const fv = foundry.utils?.isNewerVersion ? game.version : game.release?.generation;
-    const major_version = parseInt(fv) || game.release?.generation || 11;
-    if (major_version < 13) {
-      context.biographyHTML = await TextEditor.enrichHTML(context.systemData.biography ?? "", {
-        async: true
-      });
-      context.battle1HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_1.details ?? "", {
-        async: true
-      });
-      context.battle2HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_2.details ?? "", {
-        async: true
-      });
+    const fv = game.version ?? game?.data?.version;
+    const use_v13 = foundry.utils.isNewerVersion(fv, "12.999");
+    if (use_v13) {
+      context.biographyHTML = context.systemData.biography ?? "";
+      context.battle1HTML = context.systemData.battle_ability_1?.details ?? "";
+      context.battle2HTML = context.systemData.battle_ability_2?.details ?? "";
+    } else {
+      context.biographyHTML = await TextEditor.enrichHTML(context.systemData.biography ?? "", {async: true});
+      context.battle1HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_1?.details ?? "", {async: true});
+      context.battle2HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_2?.details ?? "", {async: true});
     }
     return context;
   }
@@ -238,17 +236,21 @@ export class SotCActorSheet extends ActorSheet {
                 ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
                 : "";
               return `
-                <div style="margin-left: 5px; margin-bottom: 5px;">
-                  <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
-                  <span class="${colorClass}" style="margin-left: 5px; vertical-align: middle; font-size: 16px; text-shadow: black 0.5px 0.5px"><strong>${formula}</strong></span>
-                  ${moduleLine ? `<br>${moduleLine}` : ""}
+                <div style="margin-bottom: 5px;">
+                  <span class="${colorClass}" style="vertical-align: middle; font-size: 16px; text-shadow: black 0.5px 0.5px">
+                    <div style="display: flex; gap: 4px;">
+                      <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
+                      <strong style="margin-top: 4px;">${formula}</strong>
+                    </div>
+                  </span>
+                  ${moduleLine ? `${moduleLine}` : ""}
                 </div>
               `;
             }).join("");
 
             const messageContent = `
               <div class="skill-declaration">
-                <h2>${item.name}</h2>
+                <h3>${item.name}</h3>
                 ${light_costLine}
                 ${weightLine}
                 ${skillModulesLine}
@@ -329,24 +331,7 @@ export class SotCActorSheet extends ActorSheet {
               }
 
               let roll;
-              let formulaForDisplay;
-
-              // Currently, these are the only really non-module types of status effects. Maybe at some point I can make it apply more complicated specified logics
-              if (paralysis) {
-                let total = numDice * 1 + baseMod + mod + status_mod;
-                // Stylistically show the paralysis or poise when its rolled.
-                formulaForDisplay = `<img src="systems/sotc/assets/statuses/Paralyze.png" title="Paralyze" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}`;
-                roll = await new Roll(`${total}`).roll({ async: true });
-              } else if (poise) {
-                let total = numDice * dieSize + baseMod + mod + status_mod;
-                formulaForDisplay = `<img src="systems/sotc/assets/statuses/Poise.png" title="Poise" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}`;
-                roll = await new Roll(`${total}`).roll({ async: true });
-              } else {
-                let formula = `${numDice}d${dieSize} + ${baseMod} + ${mod} + ${status_mod}`;
-                // I've had it suggested that maybe this shouldn't be shown at all. I might take that into consideration eventually
-                formulaForDisplay = `${numDice}d${dieSize} + ${baseMod}`;
-                roll = await new Roll(formula).roll({ async: true });
-              }
+              let formulaForDisplay = "";
 
               if (mod > 0) {
                 formulaForDisplay = `${formulaForDisplay} + ${mod}`;
@@ -358,8 +343,27 @@ export class SotCActorSheet extends ActorSheet {
               } else if (status_mod < 0) {
                 formulaForDisplay = `${formulaForDisplay} - ${-status_mod}`;
               }
-              formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
-              
+
+              // Currently, these are the only really non-module types of status effects. Maybe at some point I can make it apply more complicated specified logics
+              if (paralysis) {
+                let total = numDice * 1 + baseMod + mod + status_mod;
+                // Stylistically show the paralysis or poise when its rolled.
+                roll = await new Roll(`${total}`).roll({ async: true });
+                formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+                formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Paralyze.png" title="Paralyze" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
+              } else if (poise) {
+                let total = numDice * dieSize + baseMod + mod + status_mod;
+                roll = await new Roll(`${total}`).roll({ async: true });
+                formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+                formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Poise.png" title="Poise" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
+              } else {
+                let formula = `${numDice}d${dieSize} + ${baseMod} + ${mod} + ${status_mod}`;
+                // I've had it suggested that maybe this shouldn't be shown at all. I might take that into consideration eventually
+                roll = await new Roll(formula).roll({ async: true });
+                formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+                formulaForDisplay = `${numDice}d${dieSize} + ${baseMod}${formulaForDisplay}`;
+              }
+
               results.push({die, roll, formulaForDisplay, mod, status_mod});
             }
 
@@ -383,31 +387,33 @@ export class SotCActorSheet extends ActorSheet {
                 : "";
 
               return `
-                <div style="margin-left: 5px; margin-bottom: 5px;">
-                  <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
-                  <span class="${colorClass}" style="margin-left: 5px; vertical-align: middle; font-size: 16px;">
-                    <strong style="text-shadow: black 0.5px 0.5px">${formulaForDisplay}</strong>
-                    <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
-                      data-actor-id="${this.actor.id}"
-                      data-formula="${die.formula}"
-                      data-mod="${mod}"
-                      data-statmod="${status_mod}"
-                      data-type="${die.type}"
-                      data-color="die-color-${die.type}"
-                      data-modules='${JSON.stringify(Object.values(die.mods ?? {}))}'
-                      data-itemname="${item.name}"
-                      style="width: 16px; height: 16px; color: black; margin-left: 8px;">
-                      <i class="fas fa-rotate-left"></i>
-                    </a>
+                <div style="margin-bottom: 5px;">
+                  <span class="${colorClass}" style="vertical-align: middle; font-size: 16px;">
+                    <div style="display: flex; gap: 4px;">
+                      <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
+                      <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${formulaForDisplay}</strong>
+                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
+                        data-actor-id="${this.actor.id}"
+                        data-formula="${die.formula}"
+                        data-mod="${mod}"
+                        data-statmod="${status_mod}"
+                        data-type="${die.type}"
+                        data-color="die-color-${die.type}"
+                        data-modules='${JSON.stringify(Object.values(die.mods ?? {}))}'
+                        data-itemname="${item.name}"
+                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                        <i class="fas fa-rotate-left"></i>
+                      </a>
+                    </div>
                   </span>
-                  ${moduleLine ? `<br>${moduleLine}` : ""}
+                  ${moduleLine ? `${moduleLine}` : ""}
                 </div>
               `;
             }).join("");
 
             const flavor = `
               <div class="skill-roll-summary">
-                <h2>${item.name}</h2>
+                <h3>${item.name}</h3>
                 ${light_costLine}
                 ${weightLine}
                 ${skillModulesLine}
@@ -578,21 +584,7 @@ export class SotCActorSheet extends ActorSheet {
             }
               
             let roll;
-            let formulaForDisplay;
-
-            if (paralysis) {
-              let total = numDice * 1 + baseMod + mod + status_mod;
-              formulaForDisplay = `<img src="systems/sotc/assets/statuses/Paralyze.png" title="Paralyze" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; filter: drop-shadow(1px 1px 2px black); border: none;">(${numDice}d${dieSize}) + ${baseMod}`;
-              roll = await new Roll(`${total}`).roll({ async: true });
-            } else if (poise) {
-              let total = numDice * dieSize + baseMod + mod + status_mod;
-              formulaForDisplay = `<img src="systems/sotc/assets/statuses/Poise.png" title="Poise" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; filter: drop-shadow(1px 1px 2px black); border: none;">(${numDice}d${dieSize}) + ${baseMod}`;
-              roll = await new Roll(`${total}`).roll({ async: true });
-            } else {
-              let formula = `${numDice}d${dieSize} + ${baseMod} + ${mod} + ${status_mod}`;
-              formulaForDisplay = `${numDice}d${dieSize} + ${baseMod}`;
-              roll = await new Roll(formula).roll({ async: true });
-            }
+            let formulaForDisplay = "";
 
             if (mod > 0) {
               formulaForDisplay = `${formulaForDisplay} + ${mod}`;
@@ -604,7 +596,24 @@ export class SotCActorSheet extends ActorSheet {
             } else if (status_mod < 0) {
               formulaForDisplay = `${formulaForDisplay} - ${-status_mod}`;
             }
-            formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+
+            if (paralysis) {
+              let total = numDice * 1 + baseMod + mod + status_mod;
+              roll = await new Roll(`${total}`).roll({ async: true });
+              formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+              formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Paralyze.png" title="Paralyze" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
+            } else if (poise) {
+              let total = numDice * dieSize + baseMod + mod + status_mod;
+              roll = await new Roll(`${total}`).roll({ async: true });
+              formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+              formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Poise.png" title="Poise" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
+            } else {
+              let formula = `${numDice}d${dieSize} + ${baseMod} + ${mod} + ${status_mod}`;
+              // I've had it suggested that maybe this shouldn't be shown at all. I might take that into consideration eventually
+              roll = await new Roll(formula).roll({ async: true });
+              formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
+              formulaForDisplay = `${numDice}d${dieSize} + ${baseMod}${formulaForDisplay}`;
+            }
 
             // Module display
             const modules = Object.values(die.mods ?? {});
@@ -618,27 +627,28 @@ export class SotCActorSheet extends ActorSheet {
               <div class="skill-die-roll">
                 <h3>${item.name}</h3>
                 <div style="margin-left:5px; margin-bottom:5px;">
-                  <img src="${icon}" alt="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
                   <span class="${colorClass}" style="margin-left: 5px; vertical-align: middle; font-size: 16px;">
-                    <strong style="text-shadow: black 0.5px 0.5px">${formulaForDisplay}</strong>
-                    <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
-                      data-actor-id="${this.actor.id}"
-                      data-formula="${die.formula}"
-                      data-mod=${mod}
-                      data-statmod="${status_mod}"
-                      data-type="${die.type}"
-                      data-color="die-color-${die.type}"
-                      data-modules='${JSON.stringify(Object.values(die.mods ?? {}))}'
-                      data-itemname="${item.name}"
-                      style="width: 16px; height: 16px; color: black; margin-left: 8px;">
-                      <i class="fas fa-rotate-left"></i>
-                    </a>
+                    <div style="display: flex; gap: 4px;">
+                      <img src="${icon}" alt="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
+                      <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${formulaForDisplay}</strong>
+                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
+                        data-actor-id="${this.actor.id}"
+                        data-formula="${die.formula}"
+                        data-mod=${mod}
+                        data-statmod="${status_mod}"
+                        data-type="${die.type}"
+                        data-color="die-color-${die.type}"
+                        data-modules='${JSON.stringify(Object.values(die.mods ?? {}))}'
+                        data-itemname="${item.name}"
+                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                        <i class="fas fa-rotate-left"></i>
+                      </a>
+                    </div>
                   </span>
-                  ${moduleLine ? `<br>${moduleLine}` : ""}
+                  ${moduleLine ? `${moduleLine}` : ""}
                 </div>
               </div>
             `;
-
             await roll.toMessage({
               speaker: ChatMessage.getSpeaker({ actor: this.actor }),
               flavor: flavor,
@@ -826,9 +836,9 @@ export class SotCActorSheet extends ActorSheet {
     // Current styling is mundane, doesn't need to be complicated for now
     const content = `
       <div class="sotc-passive-card">
-        <h2 style="margin:0; color: black; text-shadow: 1px 1px 2px white;">
+        <h3 style="margin:0; color: black; text-shadow: 1px 1px 2px white;">
           ${name}
-        </h2>
+        </h3>
         <div class="sotc-passive-details">${details}</div>
       </div>
     `;
@@ -882,7 +892,7 @@ export class SotCActorSheet extends ActorSheet {
     return r.toMessage({
       user: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `<h2>${item.name}</h2><h3>${button.text()}</h3>`
+      flavor: `<h3>${item.name}</h3><h3>${button.text()}</h3>`
     });
   }
 
@@ -898,7 +908,7 @@ export class SotCActorSheet extends ActorSheet {
     const content = `
       <form class="test_dialog" style="background-color: black; color: #efc281; padding: 0px;">
         <div class="test_dialog_box" style="padding: 8px;">
-          <h2>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h2>
+          <h3>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h3>
           <div style="text-align: center; margin-top: 8px; display: flex;">
             <span style="align-self: center;">Number of Dice: </span>
             <div style="flex: 1;display: flex;flex-direction: column;">
@@ -947,7 +957,7 @@ export class SotCActorSheet extends ActorSheet {
     const results = roll.dice[0].results.map(r => r.result);
     const success = results.some(r => r <= attribute_value);
 
-    const result_text = success ? "<span style='color: #00aa00;'>SUCCESS</span>" : "<span style='color: #ff4444;'>FAILURE</span>";
+    const result_text = success ? '<b style="margin-bottom: 4px; color: #00aa00;">SUCCESS</b>' : '<b style="margin-bottom: 4px; color: #ff4444;">FAILURE</b>';
 
     const roll_HTML = await roll.render();
 
@@ -957,7 +967,7 @@ export class SotCActorSheet extends ActorSheet {
         <h3>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h3>
         <p>${num_attempts}d10 vs. ${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} (${attribute_value})</p>
         <p>Results: [ ${results.join(", ")} ]</p>
-        <h4 style="margin-bottom: 4px;">${result_text}</h4>
+        ${result_text}
         ${roll_HTML}
       </div>
     `;
