@@ -62,3 +62,11 @@ v1.02
 v1.03
  - I'm not gonna clutter this up too much, so I've added a changelog .txt instead. Is that good form? Idk. 
  - Oh hey look, on the last update I also said it was 3am. It's 3am again now! Haha!
+
+v1.04
+ - with the next update I'm gonna move v1.01 and v1.02 to the changelog and just keep v1.03 onwards here, I'm just too lazy to do it right now.
+- v13 of foundry is now system compatible. Previously actor sheets and passive sheets were not possible to open
+- In v13, haste/bind would only work on the first speed dice of an actor. This is now resolved for realsies
+- v13 formatting for dice summaries and a bunch of other stuff was all screwed up. It's better now
+- The v13 actor sheet was messed up compared to v11. It's better now
+- Passive sheet had some stuff not rendering in v13, now fixed
