@@ -6,11 +6,7 @@
                 <a class="passive_card-control print-passive_card">Print Passive <i class="fas fa-print"></i></a>
             </div>
             <div class="passive_right">
-                {{#if detailsHTML}}
-                    {{editor detailsHTML target="system.details" button=true editable=editable engine="prosemirror"}}
-                {{else}}
-                    {{editor target="system.details" button=true editable=editable engine="prosemirror"}}
-                {{/if}}
+                {{editor detailsHTML target="system.details" button=true editable=editable engine="prosemirror"}}
             </div>
         </div>
     </div>

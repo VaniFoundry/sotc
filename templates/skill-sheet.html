@@ -9,11 +9,6 @@
             {{/if}}
         </div>
         <div class = "left">
-            <div class="skill_emotion_image">
-                {{#if systemData.emotion_cost}}
-                    <img src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
-                {{/if}}
-            </div>
             <div class="left_header">
                 <div class="skill_light">
                     <input type="number" name="system.light_cost" value="{{systemData.light_cost}}"/>
@@ -37,6 +32,9 @@
                     {{#if systemData.emotion_cost}}
                         <div class="emotion_div">
                             <span class="system.emotion_cost">{{systemData.emotion_cost}}</span>
+                        </div>
+                        <div class="skill_emotion_image">
+                            <img src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
                         </div>
                     {{/if}}
                 </div>

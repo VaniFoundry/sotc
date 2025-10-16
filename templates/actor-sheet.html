@@ -38,7 +38,7 @@
                                 {{{passive.system.details}}}
                             </div>
                         </div>
-                        <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; opacity: 0.5">
+                        <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; opacity: 0.5; margin-left: 5%">
                     {{/if}}
                 {{/each}}
                 <div class="passive_card">
@@ -47,11 +47,7 @@
                     </div>
                 </div>
             </div>
-            {{#if biographyHTML}}
-                {{editor biographyHTML target="system.biography" button=true editable=editable engine="prosemirror"}}
-            {{else}}
-                {{editor target="system.biography" button=true editable=editable engine="prosemirror"}}
-            {{/if}}
+            {{editor biographyHTML target="system.biography" button=true editable=editable engine="prosemirror"}}
         </div>
 
         {{!-- Summary Tab --}}
@@ -180,19 +176,11 @@
                 <div class="battle_abilities">
                     <input type="text" name="system.battle_ability_1.name" value="{{systemData.battle_ability_1.name}}" placeholder="Battle Ability 1" style="height:30px; width:100%"/>
                     <div class="battle_editor_1">
-                        {{#if battle1HTML}}
-                            {{editor battle1HTML target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
-                        {{else}}
-                            {{editor target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
-                        {{/if}}
+                        {{editor battle1HTML target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
                     </div>
                     <input type="text" name="system.battle_ability_2.name" value="{{systemData.battle_ability_2.name}}" placeholder="Battle Ability 2" style="height:30px; width:100%"/>
                     <div class="battle_editor_2">
-                        {{#if battle2HTML}}
-                            {{editor battle2HTML target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
-                        {{else}}
-                            {{editor target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
-                        {{/if}}
+                        {{editor battle2HTML target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
                     </div>
                 </div>
             </div>
@@ -303,7 +291,7 @@
                                 {{{passive.system.details}}}
                             </div>
                         </div>
-                        <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; opacity: 0.5">
+                        <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; opacity: 0.5; margin-left: 5%">
                     {{/if}}
                 {{/each}}
                 <div class="passive_card">
@@ -387,7 +375,7 @@
                         <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Buff<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
-                <hr style="width: 1px; border: 1px solid white;">
+                <hr style="width: 1px; border: 1px solid white; height: inherit;">
                 <div class="debuffs">
                     {{#each statuses as |status i| }}
                         {{#if (eq status.system.types "debuff")}}
@@ -457,7 +445,7 @@
                     </div>
                 </div>
             </div>
-            <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px;">
+            <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; margin-left: 5%">
             <div class="boons_and_ailments">
                 <div class="boons">
                     {{#each statuses as |status i| }}
@@ -527,7 +515,7 @@
                         <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Boon<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
-                <hr style="width: 1px; border: 1px solid white;">
+                <hr style="width: 1px; border: 1px solid white; height: inherit;">
                 <div class="ailments">
                     {{#each statuses as |status i| }}
                         {{#if (eq status.system.types "ailment")}}
@@ -597,7 +585,7 @@
                     </div>
                 </div>
             </div>
-            <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px;">
+            <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; margin-left: 5%">
             <div class="other_statuses">
                 <div class="other">
                     {{#each statuses as |status i| }}
@@ -673,12 +661,12 @@
 
     {{!-- Sheet Tab Navigation --}}
     <nav class="sheet-tabs tabs" data-group="primary" style="color: #efc281;">
-        <a class="item" data-tab="summary">Summary</a>
-        <a class="item" data-tab="skills">Skills</a>
-        <a class="item" data-tab="ego">EGO</a>
-        <a class="item" data-tab="statuses">Statuses</a>
-        <a class="item" data-tab="passives">Passives</a>
-        <a class="item" data-tab="biography">Biography</a>
+        <a class="item" data-tab="summary" style="color: #efc281;">Summary</a>
+        <a class="item" data-tab="skills" style="color: #efc281;">Skills</a>
+        <a class="item" data-tab="ego" style="color: #efc281;">EGO</a>
+        <a class="item" data-tab="statuses" style="color: #efc281;">Statuses</a>
+        <a class="item" data-tab="passives" style="color: #efc281;">Passives</a>
+        <a class="item" data-tab="biography" style="color: #efc281;">Biography</a>
     </nav>
 
 </form>
