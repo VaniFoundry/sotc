@@ -317,6 +317,27 @@
   border: 2px double black;
   position: relative;
 }
+.sotc .skill_drag_handle {
+  position: absolute;
+  top: 25%;
+  left: 0px;
+  height: 50%;
+  z-index: 2;
+  width: 16px;
+  padding: 4px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: black;
+  font-size: 24px;
+}
+.sotc .skill_drag_handle i {
+  opacity: 0.5;
+}
+.sotc .skill_card[draggable="true"] {
+  user-select: none;
+}
 .skill_mini_image_background,
 .skill_mini_image_border {
   position: absolute;
@@ -886,10 +907,16 @@
 .sotc_attribute_roll_dialog .window-content,
 .sotc_generic_roll_dialog .dialog,
 .sotc_generic_roll_dialog .dialog-content,
-.sotc_generic_roll_dialog .window-content {
+.sotc_generic_roll_dialog .window-content,
+.sotc_damage_wizard .dialog,
+.sotc_damage_wizard .dialog-content,
+.sotc_damage_wizard .window-content {
   padding: 0px;
   background-color: black;
   color: #efc281;
+}
+.sotc_damage_wizard option {
+  color: black;
 }
 .roll_dialog_box {
   display: flex;
@@ -914,7 +941,8 @@
 }
 .sotc_skill_roll_dialog .dialog-buttons,
 .sotc_attribute_roll_dialog .dialog-buttons,
-.sotc_generic_roll_dialog .dialog-buttons {
+.sotc_generic_roll_dialog .dialog-buttons,
+.sotc_damage_wizard .dialog-buttons {
   border-top: none;
   padding: 5px;
   display: flex;
@@ -927,6 +955,11 @@
 }
 .toggle-roll-details.open {
   transform: rotate(90deg);
+}
+
+.opposed_label {
+  color: black;
+  text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;
 }
 
 
@@ -980,6 +1013,12 @@
   display: flex;
   align-items: center;
   gap: 4px;
+}
+.scene_end_effects {
+  display: flex;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  gap: 5px;
 }
 
 .buffs_and_debuffs,
@@ -1109,6 +1148,7 @@
   padding: 0 2px;
 }
 
+
 .passive .passive_div {
   display: flex;
   justify-content: space-between;
@@ -1127,7 +1167,30 @@
   height: 100%;
 }
 
+.passive_card .passive_drag_handle {
+  position: absolute;
+  top: 25%;
+  right: 0px;
+  height: 50%;
+  z-index: 2;
+  width: 16px;
+  padding: 4px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 30px;
+}
+.passive_card .passive_drag_handle i {
+  opacity: 0.5;
+}
+.passive_card[draggable="true"] {
+  user-select: none;
+}
+
 .passive_card {
+  position: relative;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
