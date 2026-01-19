@@ -1,4 +1,47 @@
-Version 1.03
+Version 1.05
+Perhaps I am the worst developer. Still, I've done something that maybe eventually will be worth holding pride in.
+Haha. See the problem is, I haven't tested V13 and there's a chance that this update nukes it entirely. Good luck!
+If it doesn't work, please let me know.
+
+
+Mechanical and QOL updates
+- The meat of the update. There's a lot. I'd dub it "Do you have any idea how fast you handled that combat?" update, because
+  you'll be zipping through combats so fast that you'll be breaking the speed limit
+- Rolled skills now feature an option to open a Damage Wizard to ease your calculation of damage. Speed up those combats
+- Added scene end effects such light recovery and status effect handling
+- Added a new type of statuses called stagger_likes which interact with scene end effects
+- Added dynamic damage and stagger affinity support for status effects and damage calculation
+- Health, Stagger, and Emotion can now be changed with arithmatic inputs of +/-X to apply +X or -X respectively to the current number
+- Skills can be dragged between sheets now. Passives should have been possible too, but I tried once and gave up - nevermind it broke more
+  than I thought so I came back and fixed it. passives work too
+- And what I am possibly most proud of...! Status effect HUD!!! Welcome back your old friends of dead, asleep, unconscious, and prone 
+  along with all of YOUR custom statuses, which you can increase and decrease with the click of a button (left and right respectively).
+  It is truly, a beautiful thing.
+- If there's any other changes, I'm gonna hope they're just things I forgot about because it is past 3am.
+- Oh yeah, I updated the base status effects in the compendium as well
+
+Optimization
+- Cut down on the file size. Thanks for whoever it was for pointing out my git stuff didn't need to be in there
+- Removed some other stuff to reduce file size
+- And otherwise my implementations are bad and did not optimize at all. Hurray!
+
+Bugfixes
+- Combat tracker settings should be working now. The boilerplate I used had some outdated methods. Combat Carousel should read
+  it without issue
+- I dunno if there was anything else. I think it was pretty good?
+
+FUTURE Changes:
+- NPC Sheet
+- Automation of anxieties and injuries for attempts
+- Indicator of Max/Min roll on a dice to point out crits (it saddens me that these 3 are still here...)
+- Macro support
+- [Hit] and [Clash Win] effects to actually apply statuses and whatever other effects. We'll see
+
+###---------------------------------------------------------------------------------------------------------------------###
+###															###
+###---------------------------------------------------------------------------------------------------------------------###
+
+Version 1.04
 
 First and foremost!
 - Fixed a bug where speed dice would always default to rolling a 1d6 unless the token had haste or bind!
@@ -23,7 +66,7 @@ Other Bugs:
 - Touched up the character sheet somewhat for some other bugs where text was gray instead of Library of Ruina gold
 
 FUTURE Changes (soon, I hope):
-- NPC Sheet
+- NPC Sheet - Not done yet
 - Draggable skills/passives/statuses and everything foundry considers to be an item
 - Automation of anxieties and injuries for attempts
 - Indicator of Max/Min roll on a dice to point out crits

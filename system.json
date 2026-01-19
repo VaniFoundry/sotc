@@ -4,7 +4,7 @@
   "description": "A system for playing Stars of the City, a Project Moon inspired TTRPG by Jakkafang and community.",
   "url": "https://github.com/tsu-b-asa/sotc",
   "manifest": "https://raw.githubusercontent.com/tsu-b-asa/sotc/master/system.json",
-  "download": "https://github.com/tsu-b-asa/sotc/releases/download/version-1.04/sotc-version-1.04.zip",
+  "download": "https://github.com/tsu-b-asa/sotc/releases/download/version-1.05/sotc-version-1.05.zip",
   "authors": [
     {
       "name": "Tsubasa",
@@ -12,7 +12,7 @@
       "flags": {}
     }
   ],
-  "version": 1.04,
+  "version": 1.05,
   "compatibility": {
     "minimum": 11,
     "verified": "11.315"
@@ -47,7 +47,14 @@
   ],
   "gridDistance": 5,
   "gridUnits": "ft",
-  "primaryTokenAttribute": "Hit Points",
-  "secondaryTokenAttribute": "Stagger Resistance",
+  "trackableAttributes": {
+    "character": {
+      "bar": [
+        "system.health.value",
+        "system.stagger.value",
+        "system.light.value"
+      ]
+    }
+  },
   "background": "systems/sotc/assets/home_page.png"
 }

@@ -10,7 +10,7 @@ But for now, this is a fairly basic implementation that in the future will have 
 
 Feature Forecast
  - Modification of Dice Rolls and Derived Character Sheet Statistics by the effects of passive status effects. This will likely mimic the pathfinder system,
-	it's solely due to scope limitation that this version doesn't already include this particular feature
+	it's solely due to scope limitation that this version doesn't already include this particular feature - DONE
  - Application of modules to skills that actually have active or passive effects
 	- i.e. dice readout includes a button for "Apply X Burn" using the foundry target system to apply a status effect. This would require the 
 	  hookup of dice modules as more than just text
@@ -20,17 +20,17 @@ Feature Forecast
  - Maybe eventually make passive entries also be able to apply bonuses, like Ruina keypages would
  - Add level up mechanics for minor improvements
  - Add language support for any requested languages
- - Rework statuses to use foundry default status system for module compatability <- I hate that I once wrote this
- - The mess that is turn-end effects, like light regen or status effects. Bleh...
+ - Rework statuses to use foundry default status system for module compatability - DONE
+ - The mess that is turn-end effects, like light regen or status effects - DONE
  - Trackers, like for whether an ego passive is active or not
  - Option to print-out status effects to chat (currently I encourage you to just have the description written separately as a passive saying something
 	like "Unit X applies Y effect with some skills. Y effect does Z."
  - NPC Sheet
- - Draggable skills/passives/statuses and everything foundry considers to be an item
+ - Draggable skills/passives/statuses and everything foundry considers to be an item - Partially done
  - Automation of anxieties and injuries for attempts
  - Indicator of Max/Min roll on a dice to point out crits
- - Dynamic modification of stats like damage affinities to reflect passives AND
- - Button-press application of damage/stagger to a character after roll, hypothetically allowing for defensive dice or bonuses to damage/stagger to be recognized
+ - Dynamic modification of stats like damage affinities to reflect passives - DONE
+ - Button-press application of damage/stagger to a character after roll, hypothetically allowing for defensive dice or bonuses to damage/stagger to be recognized - DONE
 
 Requested Changes
  - Tsuchigumo and TrueQueenOfRose: Let status effects target/be applied to skills on the character's sheet, for effects like Ember or Pebble or Lock
@@ -63,10 +63,4 @@ v1.03
  - I'm not gonna clutter this up too much, so I've added a changelog .txt instead. Is that good form? Idk. 
  - Oh hey look, on the last update I also said it was 3am. It's 3am again now! Haha!
 
-v1.04
- - with the next update I'm gonna move v1.01 and v1.02 to the changelog and just keep v1.03 onwards here, I'm just too lazy to do it right now.
-- v13 of foundry is now system compatible. Previously actor sheets and passive sheets were not possible to open
-- In v13, haste/bind would only work on the first speed dice of an actor. This is now resolved for realsies
-- v13 formatting for dice summaries and a bunch of other stuff was all screwed up. It's better now
-- The v13 actor sheet was messed up compared to v11. It's better now
-- Passive sheet had some stuff not rendering in v13, now fixed
+SEE CHANGELOG FOR v1.04 AND ABOVE
