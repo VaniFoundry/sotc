@@ -23,10 +23,11 @@
                         <option value="active" {{#if (eq systemData.condition "active")}}selected{{/if}}>On Trigger</option>
                         <option value="passive" {{#if (eq systemData.condition "passive")}}selected{{/if}}>Passively</option>
                         <option value="special" {{#if (eq systemData.condition "special")}}selected{{/if}}>Special</option>
+                        <option value="stagger_like" {{#if (eq systemData.condition "stagger_like")}}selected{{/if}}>Stagger-like</option>
                         <!-- <option value="target_skill" {{#if (eq systemData.condition "target_skill")}}selected{{/if}}>Target Skill</option> -->
                     </select>
                     {{#if systemData.condition}}
-                        {{#if (ne systemData.condition "special")}}
+                        {{#if (and (ne systemData.condition "special") (ne systemData.condition "stagger_like"))}}
                             <select name="system.effect">
                                 <option value="Increase" {{#if (eq systemData.effect "Increase")}}selected{{/if}}>Increase</option>
                                 <option value="Decrease" {{#if (eq systemData.effect "Decrease")}}selected{{/if}}>Decrease</option>
@@ -38,9 +39,6 @@
                                     <option value="hp_stagger" {{#if (eq systemData.target "hp_stagger")}}selected{{/if}}>Hit Points & Stagger Resistance</option>
                                 {{else}}
                                     <option value="" {{#if (eq systemData.target "")}}selected{{/if}}></option>
-                                    <option value="damage affinities" {{#if (eq systemData.target "damage affinities")}}selected{{/if}}>Damage Affinity</option>
-                                    <option value="stagger affinities" {{#if (eq systemData.target "stagger affinities")}}selected{{/if}}>Stagger Affinity</option>
-                                    <option value="damage and stagger affinities" {{#if (eq systemData.target "damage and stagger affinities")}}selected{{/if}}>Damage & Stagger Affinity</option>
                                     <option value="all dice power" {{#if (eq systemData.target "all dice power")}}selected{{/if}}>All Dice Power</option>
                                     <option value="offensive power" {{#if (eq systemData.target "offensive power")}}selected{{/if}}>Offensive Dice Power</option>
                                     <option value="defensive power" {{#if (eq systemData.target "defensive power")}}selected{{/if}}>Defensive Dice Power</option>
@@ -49,6 +47,18 @@
                                     <option value="blunt power" {{#if (eq systemData.target "blunt power")}}selected{{/if}}>Blunt Dice Power</option>
                                     <option value="block power" {{#if (eq systemData.target "block power")}}selected{{/if}}>Block Dice Power</option>
                                     <option value="evade power" {{#if (eq systemData.target "evade power")}}selected{{/if}}>Evade Dice Power</option>
+                                    <option value="damage affinities" {{#if (eq systemData.target "damage affinities")}}selected{{/if}}>Damage Affinity</option>
+                                    <option value="stagger affinities" {{#if (eq systemData.target "stagger affinities")}}selected{{/if}}>Stagger Affinity</option>
+                                    <option value="damage and stagger affinities" {{#if (eq systemData.target "damage and stagger affinities")}}selected{{/if}}>Damage & Stagger Affinity</option>
+                                    <option value="slash damage affinity" {{#if (eq systemData.target "slash damage affinity")}}selected{{/if}}>Slash Damage Affinity</option>
+                                    <option value="slash stagger affinity" {{#if (eq systemData.target "slash stagger affinity")}}selected{{/if}}>Slash Stagger Affinity</option>
+                                    <option value="slash damage and stagger affinity" {{#if (eq systemData.target "slash damage and stagger affinity")}}selected{{/if}}>Slash Damage & Stagger Affinity</option>
+                                    <option value="pierce damage affinity" {{#if (eq systemData.target "pierce damage affinity")}}selected{{/if}}>Pierce Damage Affinity</option>
+                                    <option value="pierce stagger affinity" {{#if (eq systemData.target "pierce stagger affinity")}}selected{{/if}}>Pierce Stagger Affinity</option>
+                                    <option value="pierce damage and stagger affinity" {{#if (eq systemData.target "pierce damage and stagger affinity")}}selected{{/if}}>Pierce Damage & Stagger Affinity</option>
+                                    <option value="blunt damage affinity" {{#if (eq systemData.target "blunt damage affinity")}}selected{{/if}}>Blunt Damage Affinity</option>
+                                    <option value="blunt stagger affinity" {{#if (eq systemData.target "blunt stagger affinity")}}selected{{/if}}>Blunt Stagger Affinity</option>
+                                    <option value="blunt damage and stagger affinity" {{#if (eq systemData.target "blunt damage and stagger affinity")}}selected{{/if}}>Blunt Damage & Stagger Affinity</option>
                                     <option value="speed" {{#if (eq systemData.target "speed")}}selected{{/if}}>Speed Dice Modifier</option>
                                     <option value="number of speed dice" {{#if (eq systemData.target "number of speed dice")}}selected{{/if}}>Number of Speed Dice</option>
                                     <option value="max hp" {{#if (eq systemData.target "max hp")}}selected{{/if}}>Maximum Hit Points</option>
@@ -63,7 +73,6 @@
                             <input type="number" name="system.potency" value="{{systemData.potency}}" style="width: 32px; text-align: center;"/>
                             <span>per status count.</span>
                         {{/if}}
-                        <textarea type="text" name="system.special" placeholder="Special / Additional descriptions go here..." style="height: 64px; margin-left: 2px; resize: none;">{{systemData.special}}</textarea>
                         {{#if (eq systemData.condition "active")}}
                             <div class="post_effect_buttons">
                                 <div style="margin-top: 8px; margin-bottom: 4px;">Create the following buttons for triggering the status' effect and changing the count after the effect is triggered.</div>
@@ -71,13 +80,14 @@
                                     <div class="post_effect_contents" data-post-active="{{i}}">
                                         <a class="post_actives-control remove-option"><i class="fas fa-minus"></i></a>
                                         <select name="system.post_actives.{{i}}.operator">
-                                            <option value="maintain" {{#if (eq post_active.operator "maintain")}}selected{{/if}}>Trigger then Do Nothing</option>
+                                            <option value="maintain" {{#if (eq post_active.operator "maintain")}}selected{{/if}}>Trigger then Do Nothing.</option>
                                             <option value="subtract" {{#if (eq post_active.operator "subtract")}}selected{{/if}}>Trigger then Decrease By</option>
                                             <option value="divide" {{#if (eq post_active.operator "divide")}}selected{{/if}}>Trigger then Divide By</option>
                                             <option value="add" {{#if (eq post_active.operator "add")}}selected{{/if}}>Trigger then Increase By</option>
                                             <option value="multiply" {{#if (eq post_active.operator "multiply")}}selected{{/if}}>Trigger then Multiply By</option>
+                                            <option value="sinking_deluge" {{#if (eq post_active.operator "sinking_deluge")}}selected{{/if}}>Trigger (Sinking) Deluge.</option> <!-- Add trigger functionality!!!! -->
                                         </select>
-                                        {{#if (ne post_active.operator "maintain")}}
+                                        {{#if (and (ne post_active.operator "maintain") (ne post_active.operator "sinking_deluge"))}}
                                             <input type="number" name="system.post_actives.{{i}}.variable" value="{{post_active.variable}}" style="width: 32px; text-align: center;"/>
                                         {{/if}}
                                     </div>
@@ -87,6 +97,67 @@
                                 </div>
                             </div>
                         {{/if}}
+                        {{#if (eq systemData.condition "stagger_like")}}
+                            <div class="stagger_effects" style="margin-bottom:4px"> 
+                                <div style="margin-top: 8px; margin-bottom: 4px;">Apply the following effects:</div>
+                                <input type="checkbox" name="system.stagger_effects.null_light_regen" {{checked systemData.stagger_effects.null_light_regen}} id="null_light_regen">
+                                <label for="null_light_box">Prevent light restoration at scene start.</label><br>
+                                <input type="checkbox" name="system.stagger_effects.null_speed_dice" {{checked systemData.stagger_effects.null_speed_dice}} id="null_speed_dice">
+                                <label for="null_speed_dice">Destroy all speed dice.</label><br>
+                                <input type="checkbox" name="system.stagger_effects.null_affinities" {{checked systemData.stagger_effects.null_affinities}} id="null_affinities">
+                                <label for="null_affinities">Nullify any base damage and stagger resistances.</label><br>
+                                <input type="checkbox" name="system.stagger_effects.reset_stagger" {{checked systemData.stagger_effects.reset_stagger}} id="reset_stagger">
+                                <label for="reset_stagger">Recover all stagger on clearing status.</label><br>
+                            </div>
+                            <div class="stagger_effects">
+                                Status expires
+                                <input type="number" name="system.stagger_duration" value="{{systemData.stagger_duration}}" style="width: 32px; text-align: center;"/>
+                                round(s) after being applied.
+                            </div>
+                        {{/if}}
+                        {{#if (eq systemData.condition "active")}}
+                            <div class="scene_end_effects">
+                                <div style="margin-top: 6px; margin-bottom: 4px;">At scene end,</div>
+                                    <div class="scene_end_contents">
+                                        <select name="system.scene_end_effect.activate_var">
+                                            <option value="activate" {{#if (eq systemData.scene_end_effect.activate_var "activate")}}selected{{/if}}>Trigger</option>
+                                            <option value="do_not_activate" {{#if (eq systemData.scene_end_effect.activate_var "do_not_activate")}}selected{{/if}}>Do not Trigger</option>
+                                        </select>
+                                        then
+                                        <select name="system.scene_end_effect.operator">
+                                            <option value="maintain" {{#if (eq systemData.scene_end_effect.operator "maintain")}}selected{{/if}}>Do Nothing</option>
+                                            <option value="subtract" {{#if (eq systemData.scene_end_effect.operator "subtract")}}selected{{/if}}>Decrease By</option>
+                                            <option value="divide" {{#if (eq systemData.scene_end_effect.operator "divide")}}selected{{/if}}>Divide By</option>
+                                            <option value="add" {{#if (eq systemData.scene_end_effect.operator "add")}}selected{{/if}}>Increase By</option>
+                                            <option value="multiply" {{#if (eq systemData.scene_end_effect.operator "multiply")}}selected{{/if}}>Multiply By</option>
+                                        </select>
+                                        {{#if (ne systemData.scene_end_effect.operator "maintain")}}
+                                            <input type="number" name="system.scene_end_effect.variable" value="{{systemData.scene_end_effect.variable}}" style="width: 32px; text-align: center;"/>
+                                        {{/if}}
+                                    </div>
+                                </div>
+                            </div>
+                        {{/if}}
+                        {{#if (or (eq systemData.condition "passive") (eq systemData.condition "special"))}}
+                            <div class="scene_end_effects">
+                                <div style="margin-top: 6px; margin-bottom: 4px;">At scene end,</div>
+                                    <div class="scene_end_contents">
+                                        <select name="system.scene_end_effect.operator">
+                                            <option value="maintain" {{#if (eq systemData.scene_end_effect.operator "maintain")}}selected{{/if}}>Do Nothing</option>
+                                            <option value="clear" {{#if (eq systemData.scene_end_effect.operator "clear")}}selected{{/if}}>Clear All</option>
+                                            <option value="subtract" {{#if (eq systemData.scene_end_effect.operator "subtract")}}selected{{/if}}>Decrease By</option>
+                                            <option value="divide" {{#if (eq systemData.scene_end_effect.operator "divide")}}selected{{/if}}>Divide By</option>
+                                            <option value="add" {{#if (eq systemData.scene_end_effect.operator "add")}}selected{{/if}}>Increase By</option>
+                                            <option value="multiply" {{#if (eq systemData.scene_end_effect.operator "multiply")}}selected{{/if}}>Multiply By</option>
+                                        </select>
+                                        {{#if (and (ne systemData.scene_end_effect.operator "clear") (ne systemData.scene_end_effect.operator "maintain"))}}
+                                            <input type="number" name="system.scene_end_effect.variable" value="{{systemData.scene_end_effect.variable}}" style="width: 32px; text-align: center;"/>
+                                        {{/if}}
+                                    </div>
+                                </div>
+                            </div>
+                        {{/if}}
+                        <textarea type="text" name="system.special" placeholder="Special / Additional descriptions go here..." style="height: 64px; margin-left: 2px; margin-bottom: 8px; resize: none;">{{systemData.special}}</textarea>
                     {{/if}}
                 </div>
                 <a class="status_card-control print-status_card" style="margin-top: 5px;">Print Status <i class="fas fa-print"></i></a>

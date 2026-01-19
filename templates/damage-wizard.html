@@ -1,0 +1,27 @@
+<form class="damage_wizard">
+    <div class="incoming_damage_box" style="display: flex; width: 100%; margin-bottom: 8px; margin-left: 8px; margin-top: 2px;">
+        <div class="attacker_die" style="width: 50%">
+            Attacker:
+            <div style="display: flex; align-items: center;">
+                <img src="systems/sotc/assets/dice types/{{payload.dieType}}.png" alt="{{payload.dieType}}" title="{{payload.dieType}}" style="height:30px; width:30px; border: none;">
+                <div class="die-result die-color-{{payload.dieType}}" style="vertical-align: middle; margin-left: 3px; font-weight: bold; font-size: 1rem;">{{payload.total}}</div>
+                <span class="die-color-{{payload.dieType}}" style="vertical-align: middle; margin-right: 5px; margin-left: 3px; font-size: 1rem;">+</span>
+                <input type="number" name="mod" placeholder="Power Mod..." style="width: 128px; margin-right: 16px; color: white;">
+            </div>
+        </div>
+        <div class="defender_die" style="width: 50%">
+            Defender (target):
+            <div style="display: flex; align-items: center; gap: 4px; height: 30px;">
+                <select name="defender_die_type" style="width: 80px; color: inherit;">
+                    <option value="unopposed"></option>
+                    <option value="slash">Slash</option>
+                    <option value="pierce">Pierce</option>
+                    <option value="blunt">Blunt</option>
+                    <option value="evade">Evade</option>
+                    <option value="block">Block</option>
+                </select>
+                <input type="number" name="defender_die" placeholder="Defender Die..." style="width: 104px; margin-right: 16px; color: white;">
+            </div>
+        </div>
+    </div>
+</form>

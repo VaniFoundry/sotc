@@ -61,19 +61,19 @@
                         <div class="resource_summary">
                             <div class="resource" style="color: #ff5a39;">  
                                 <img src="systems/sotc/assets/sheets/HPIcon.webp" alt="HP Icon" style="width:auto; height:30px; border:none;">
-                                <input type="number" name="system.health.value" value="{{systemData.health.value}}"/>
+                                <input type="text" inputmode="numeric" name="system.health.value" value="{{systemData.health.value}}"/>
                                 <span> / </span>
-                                <input type="number" name="system.health.max" value="{{systemData.health.max}}"/>
+                                <input type="text" inputmode="numeric" name="system.health.max" value="{{systemData.health.max}}"/>
                             </div>
                             <div class="resource" style="color: #ffff39;">
                                 <img src="systems/sotc/assets/sheets/StaggerIcon.webp" alt="Stagger Icon" style="width:auto; height:30px; border:none">
-                                <input type="number" name="system.stagger.value" value="{{systemData.stagger.value}}"/>
+                                <input type="text" inputmode="numeric" name="system.stagger.value" value="{{systemData.stagger.value}}"/>
                                 <span> / </span>
-                                <input type="number" name="system.stagger.max" value="{{systemData.stagger.max}}"/>
+                                <input type="text" inputmode="numeric" name="system.stagger.max" value="{{systemData.stagger.max}}"/>
                             </div>
                             <div class="resource">
                                 <img src="systems/sotc/assets/sheets/EmotionIcon.webp" alt="Emotion Icon" style="width:auto; height:30px; border:none">
-                                <input type="number" name="system.emotion" value="{{systemData.emotion}}"/>
+                                <input type="text" inputmode="numeric" name="system.emotion" value="{{systemData.emotion}}"/>
                             </div>
                         </div>
                         <div class="resource_summary_2">
@@ -103,22 +103,100 @@
                         <div class="resource_summary_3">
                             <table class="affinities" style="border:none;">
                                 <tr>
-                                    <th><img src="systems/sotc/assets/sheets/dres_slash.webp" alt="Slash Damage Resistance" style="width:auto; height:30px; border:none"></th>
-                                    <th><input type="number" name="system.affinities.damage_slash" value="{{systemData.affinities.damage_slash}}"/></th>
-                                    <th><img src="systems/sotc/assets/sheets/sres_slash.webp" alt="Slash Stagger Resistance" style="width:auto; height:30px; border:none"></th>
-                                    <th><input type="number" name="system.affinities.stagger_slash" value="{{systemData.affinities.stagger_slash}}"/></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_slash.webp" alt="Slash Damage Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="display:flex; align-items:center; justify-content:center;">
+                                        <input type="number" name="system.affinities.damage_slash" value="{{systemData.affinities.damage_slash}}" style="width:30%";>
+                                        {{#if (ne systemData.modifiers.slash_damage_affinity systemData.affinities.damage_slash)}}
+                                            <i class="fa-solid fa-arrow-right" style="margin-top: 2px; width: 20%;"></i>
+                                            <span 
+                                                {{#if (gt systemData.modifiers.slash_damage_affinity systemData.affinities.damage_slash)}} 
+                                                    style="width:30%; color:#DD0000; text-shadow: #000 0 0 5px, #000 0 0 5px;" 
+                                                {{else}} 
+                                                    style="width:30%; color:#000000; text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;"
+                                                {{/if}}>
+                                                {{systemData.modifiers.slash_damage_affinity}}
+                                            </span>
+                                        {{/if}}
+                                    </th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_slash.webp" alt="Slash Stagger Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="display:flex; align-items:center; justify-content:center;">
+                                        <input type="number" name="system.affinities.stagger_slash" value="{{systemData.affinities.stagger_slash}}" style="width:30%";>
+                                        {{#if (ne systemData.modifiers.slash_stagger_affinity systemData.affinities.stagger_slash)}}
+                                            <i class="fa-solid fa-arrow-right" style="margin-top: 2px; width: 20%;"></i>
+                                            <span 
+                                                {{#if (gt systemData.modifiers.slash_stagger_affinity systemData.affinities.stagger_slash)}} 
+                                                    style="width:30%; color:#DD0000; text-shadow: #000 0 0 5px, #000 0 0 5px;" 
+                                                {{else}} 
+                                                    style="width:30%; color:#000000; text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;"
+                                                {{/if}}>
+                                                {{systemData.modifiers.slash_stagger_affinity}}
+                                            </span>
+                                        {{/if}}
+                                    </th>
                                 </tr>
                                 <tr>
-                                    <th><img src="systems/sotc/assets/sheets/dres_pierce.webp" alt="Pierce Damage Resistance" style="width:auto; height:30px; border:none"></th>
-                                    <th><input type="number" name="system.affinities.damage_pierce" value="{{systemData.affinities.damage_pierce}}"/></th>
-                                    <th><img src="systems/sotc/assets/sheets/sres_pierce.webp" alt="Pierce Stagger Resistance" style="width:auto; height:30px; border:none"></th>
-                                    <th><input type="number" name="system.affinities.stagger_pierce" value="{{systemData.affinities.stagger_pierce}}"/></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_pierce.webp" alt="Pierce Damage Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="display:flex; align-items:center; justify-content:center;">
+                                        <input type="number" name="system.affinities.damage_pierce" value="{{systemData.affinities.damage_pierce}}" style="width:30%";>
+                                        {{#if (ne systemData.modifiers.pierce_damage_affinity systemData.affinities.damage_pierce)}}
+                                            <i class="fa-solid fa-arrow-right" style="margin-top: 2px; width: 20%;"></i>
+                                            <span 
+                                                {{#if (gt systemData.modifiers.pierce_damage_affinity systemData.affinities.damage_pierce)}} 
+                                                    style="width:30%; color:#DD0000; text-shadow: #000 0 0 5px, #000 0 0 5px;" 
+                                                {{else}} 
+                                                    style="width:30%; color:#000000; text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;"
+                                                {{/if}}>
+                                                {{systemData.modifiers.pierce_damage_affinity}}
+                                            </span>
+                                        {{/if}}
+                                    </th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_pierce.webp" alt="Pierce Stagger Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="display:flex; align-items:center; justify-content:center;">
+                                        <input type="number" name="system.affinities.stagger_pierce" value="{{systemData.affinities.stagger_pierce}}" style="width:30%";>
+                                        {{#if (ne systemData.modifiers.pierce_stagger_affinity systemData.affinities.stagger_pierce)}}
+                                            <i class="fa-solid fa-arrow-right" style="margin-top: 2px; width: 20%;"></i>
+                                            <span 
+                                                {{#if (gt systemData.modifiers.pierce_stagger_affinity systemData.affinities.stagger_pierce)}} 
+                                                    style="width:30%; color:#DD0000; text-shadow: #000 0 0 5px, #000 0 0 5px;" 
+                                                {{else}} 
+                                                    style="width:30%; color:#000000; text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;"
+                                                {{/if}}>
+                                                {{systemData.modifiers.pierce_stagger_affinity}}
+                                            </span>
+                                        {{/if}}
+                                    </th>
                                 </tr>
                                 <tr>
-                                    <th><img src="systems/sotc/assets/sheets/dres_blunt.webp" alt="Blunt Damage Resistance" style="width:auto; height:30px; border:none"></th>
-                                    <th><input type="number" name="system.affinities.damage_blunt" value="{{systemData.affinities.damage_blunt}}"/></th>
-                                    <th><img src="systems/sotc/assets/sheets/sres_blunt.webp" alt="Blunt Stagger Resistance" style="width:auto; height:30px; border:none"></th>
-                                    <th><input type="number" name="system.affinities.stagger_blunt" value="{{systemData.affinities.stagger_blunt}}"/></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_blunt.webp" alt="Blunt Damage Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="display:flex; align-items:center; justify-content:center;">
+                                        <input type="number" name="system.affinities.damage_blunt" value="{{systemData.affinities.damage_blunt}}" style="width:30%";>
+                                        {{#if (ne systemData.modifiers.blunt_damage_affinity systemData.affinities.damage_blunt)}}
+                                            <i class="fa-solid fa-arrow-right" style="margin-top: 2px; width: 20%;"></i>
+                                            <span 
+                                                {{#if (gt systemData.modifiers.blunt_damage_affinity systemData.affinities.damage_blunt)}} 
+                                                    style="width:30%; color:#DD0000; text-shadow: #000 0 0 5px, #000 0 0 5px;" 
+                                                {{else}} 
+                                                    style="width:30%; color:#000000; text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;"
+                                                {{/if}}>
+                                                {{systemData.modifiers.blunt_damage_affinity}}
+                                            </span>
+                                        {{/if}}
+                                    </th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_blunt.webp" alt="Blunt Stagger Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="display:flex; align-items:center; justify-content:center;">
+                                        <input type="number" name="system.affinities.stagger_blunt" value="{{systemData.affinities.stagger_blunt}}" style="width:30%";>
+                                        {{#if (ne systemData.modifiers.blunt_stagger_affinity systemData.affinities.stagger_blunt)}}
+                                            <i class="fa-solid fa-arrow-right" style="margin-top: 2px; width: 20%;"></i>
+                                            <span 
+                                                {{#if (gt systemData.modifiers.blunt_stagger_affinity systemData.affinities.stagger_blunt)}} 
+                                                    style="width:30%; color:#DD0000; text-shadow: #000 0 0 5px, #000 0 0 5px;" 
+                                                {{else}} 
+                                                    style="width:30%; color:#000000; text-shadow: #fc0 0 0 5px, #fc0 0 0 5px, #fc0 0 0 5px, #fff 0 0 5px;"
+                                                {{/if}}>
+                                                {{systemData.modifiers.blunt_stagger_affinity}}
+                                            </span>
+                                        {{/if}}
+                                    </th>
                                 </tr>
                             </table>
                         </div>
@@ -190,7 +268,10 @@
         <div class="tab skills" data-group="primary" data-tab="skills">
             <div class="skill_list">
                 {{#each skills as |skill i| }}
-                    <div class="skill_card" data-item-id="{{skill._id}}">
+                    <div class="skill_card" data-item-id="{{skill._id}}" draggable="true">
+                        <div class="skill_drag_handle" data-drag="item">
+                            <i class="fas fa-grip-lines fa-rotate-270"></i>
+                        </div>
                         <div class="skill_mini_image_background">
                             <img src="{{skill.img}}" title="{{skill.name}}"/>
                         </div>
@@ -275,7 +356,10 @@
             <div class="sheet_passives">
                 {{#each passives as |passive i| }}
                     {{#if (eq passive.system.type "passive")}}
-                        <div class="passive_card" data-item-id="{{passive._id}}">
+                        <div class="passive_card" data-item-id="{{passive._id}}" draggable="true">
+                            <div class="passive_drag_handle" data-drag="item">
+                                <i class="fas fa-grip-lines fa-rotate-90"></i>
+                            </div>
                             <div class="passive_left">
                                 <h4 class="passive_name" style="font-size: 16px; color: inherit; font-weight: bold; text-shadow:  black 1px 0 10px, black 1px 0 10px;">{{passive.name}}</h4>
                                 <div>
@@ -343,6 +427,11 @@
                                                             x{{post_active.variable}}
                                                         </button>
                                                     {{/if}}
+                                                    {{#if (eq post_active.operator "sinking_deluge")}}
+                                                        <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}" title="{{post_active.operator}}{{post_active.variable}}">
+                                                            SD
+                                                        </button>
+                                                    {{/if}}
                                                 {{/each}}
                                             </div>
                                         {{/if}}
@@ -356,10 +445,13 @@
                                                 Special effect.
                                             </div>
                                         {{/if}}
-                                        
                                     </div>
                                     <div class="status_count">
-                                        <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{#if (ne status.system.condition "stagger_like")}}
+                                            <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{else}}
+                                            <input type="checkbox" class="toggle_stagger" data-item-id="{{status._id}}" {{checked status.system.count}}/>
+                                        {{/if}}
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
@@ -413,6 +505,11 @@
                                                             x{{post_active.variable}}
                                                         </button>
                                                     {{/if}}
+                                                    {{#if (eq post_active.operator "sinking_deluge")}}
+                                                        <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}" title="{{post_active.operator}}{{post_active.variable}}">
+                                                            SD
+                                                        </button>
+                                                    {{/if}}
                                                 {{/each}}
                                             </div>
                                         {{/if}}
@@ -428,7 +525,11 @@
                                         {{/if}}
                                     </div>
                                     <div class="status_count">
-                                        <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{#if (ne status.system.condition "stagger_like")}}
+                                            <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{else}}
+                                            <input type="checkbox" class="toggle_stagger" data-item-id="{{status._id}}" {{checked status.system.count}}/>
+                                        {{/if}}
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
@@ -484,6 +585,11 @@
                                                             x{{post_active.variable}}
                                                         </button>
                                                     {{/if}}
+                                                    {{#if (eq post_active.operator "sinking_deluge")}}
+                                                        <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}" title="{{post_active.operator}}{{post_active.variable}}">
+                                                            SD
+                                                        </button>
+                                                    {{/if}}
                                                 {{/each}}
                                             </div>
                                         {{/if}}
@@ -499,7 +605,11 @@
                                         {{/if}}
                                     </div>
                                     <div class="status_count">
-                                        <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{#if (ne status.system.condition "stagger_like")}}
+                                            <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{else}}
+                                            <input type="checkbox" class="toggle_stagger" data-item-id="{{status._id}}" {{checked status.system.count}}/>
+                                        {{/if}}
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
@@ -553,6 +663,11 @@
                                                             x{{post_active.variable}}
                                                         </button>
                                                     {{/if}}
+                                                    {{#if (eq post_active.operator "sinking_deluge")}}
+                                                        <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}" title="{{post_active.operator}}{{post_active.variable}}">
+                                                            SD
+                                                        </button>
+                                                    {{/if}}
                                                 {{/each}}
                                             </div>
                                         {{/if}}
@@ -568,7 +683,11 @@
                                         {{/if}}
                                     </div>
                                     <div class="status_count">
-                                        <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{#if (ne status.system.condition "stagger_like")}}
+                                            <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{else}}
+                                            <input type="checkbox" class="toggle_stagger" data-item-id="{{status._id}}" {{checked status.system.count}}/>
+                                        {{/if}}
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
@@ -624,6 +743,11 @@
                                                             x{{post_active.variable}}
                                                         </button>
                                                     {{/if}}
+                                                    {{#if (eq post_active.operator "sinking_deluge")}}
+                                                        <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}" title="{{post_active.operator}}{{post_active.variable}}">
+                                                            SD
+                                                        </button>
+                                                    {{/if}}
                                                 {{/each}}
                                             </div>
                                         {{/if}}
@@ -639,10 +763,15 @@
                                         {{/if}}
                                     </div>
                                     <div class="status_count">
-                                        <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{#if (ne status.system.condition "stagger_like")}}
+                                            <input type="number" name="items.{{status._id}}.system.count" value="{{status.system.count}}"/>
+                                        {{else}}
+                                            <input type="checkbox" class="toggle_stagger" data-item-id="{{status._id}}" {{checked status.system.count}}/>
+                                        {{/if}}
                                     </div>
                                     <div class="status_edit_and_delete"> 
                                         <a class="status_card-control edit-status_card"><i class="fas fa-edit"></i></a>
+                                        <a class="status_card-control print-status_card"><i class="fas fa-print"></i></a>
                                         <a class="status_card-control duplicate-status_card"><i class="fas fa-clone"></i></a>
                                         <a class="status_card-control delete-status_card"><i class="fas fa-trash"></i></a>
                                     </div>
