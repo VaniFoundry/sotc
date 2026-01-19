@@ -42,6 +42,7 @@ export class SotCStatusSheet extends ItemSheet {
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".post_actives-control").click(this._onActivesControl.bind(this));
+    html.find(".stagger_effects-control").click(this._onStaggerControl.bind(this));
 
     html.find(".print-status_card").click(this._printStatus.bind(this));
   }
@@ -111,6 +112,17 @@ export class SotCStatusSheet extends ItemSheet {
         `;
         break;
 
+      case "stagger_like":
+        message = `
+          <div class="status-chat">
+            <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
+            <p><b>Type:</b> ${type}</p>
+            <b>Description:</b>
+            "<p><i>stagger_like effects don't have description support yet. Sorry!</i></p>"}
+          </div>
+        `;
+        break;
+
       default:
         message = `
           <div class="status-chat">
@@ -150,6 +162,30 @@ export class SotCStatusSheet extends ItemSheet {
       const updated_post_array = foundry.utils.deepClone(post_actives_array);
       updated_post_array.splice(index, 1);
       return this.item.update({ "system.post_actives": updated_post_array });
+    }
+  }
+
+  async _onStaggerControl(event) {
+    event.preventDefault();
+    const a = event.currentTarget;
+    const raw_stagger_effects = this.item.system.stagger_effects;
+    const stagger_effects_array = Array.isArray(raw_stagger_effects) ? raw_stagger_effects : Object.values(raw_stagger_effects);
+
+    // Add new post active control button option
+    if ( a.classList.contains("add-option") ) {
+      await this._onSubmit(event);
+      const updated_post_array = [...stagger_effects_array, { operator: "maintain", variable: 0 }];
+      return this.item.update({ "system.stagger_effects": updated_post_array });
+    }
+
+    // Remove a post active control button option
+    if ( a.classList.contains("remove-option") ) {
+      await this._onSubmit(event);
+      const li = a.closest(".stagger_effect_contents");
+      const index = Number(li.dataset.postActive);
+      const updated_post_array = foundry.utils.deepClone(stagger_effects_array);
+      updated_post_array.splice(index, 1);
+      return this.item.update({ "system.stagger_effects": updated_post_array });
     }
   }
 }

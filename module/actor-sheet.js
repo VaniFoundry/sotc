@@ -15,8 +15,7 @@ export class SotCActorSheet extends ActorSheet {
       width: 600,
       height: 600,
       tabs: [{navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "summary"}],
-      scrollY: [".biography", ".skills", "ego", ".summary", ".passives", ".statuses"],
-      dragDrop: [{dragSelector: ".item-list .item", dropSelector: null}]
+      scrollY: [".biography", ".skills", "ego", ".summary", ".passives", ".statuses"]
     });
   }
 
@@ -77,14 +76,8 @@ export class SotCActorSheet extends ActorSheet {
     // Haha! And a third one that is very similar!
     html.find(".passive_card-control").click(this._onPassiveControl.bind(this));
 
-    // Add draggable for Macro creation
-    // Currently not gonna do a whole lot, because our items currently aren't even possible to drag around. I'll add that in a later version dw :3c
-    html.find(".attributes a.attribute-roll").each((i, a) => {
-      a.setAttribute("draggable", true);
-      a.addEventListener("dragstart", ev => {
-        let dragData = ev.currentTarget.dataset;
-        ev.dataTransfer.setData('text/plain', JSON.stringify(dragData));
-      }, false);
+    html.find(".skill_card, .passive_card").each((i, card) => {
+      card.addEventListener("dragstart", ev => this._onDragItem(ev));
     });
 
     // Time to uhh, finally implement the other part of the system. You can tell what this does, I hope
@@ -94,6 +87,27 @@ export class SotCActorSheet extends ActorSheet {
     html.find(".roll-intellect").click(ev => this._onAttributeRoll(ev, "intellect"));
     html.find(".roll-instinct").click(ev => this._onAttributeRoll(ev, "instinct"));
     html.find(".roll-persona").click(ev => this._onAttributeRoll(ev, "persona"));
+
+    html.find(".toggle_stagger").on("change", async ev => {
+      const checkbox = ev.currentTarget;
+      const itemId = checkbox.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const new_count = checkbox.checked ? 1 : 0;
+      const old_count = item.system.count ?? 0;
+
+      await item.update({ "system.count": new_count });
+
+      if (old_count === 0 && new_count > 0) {
+        const applied_round = game.combat?.round ?? 0;
+        const duration = item.system.stagger_duration ?? 0;
+
+        await item.update({
+          "system.stagger_end": applied_round + duration + 1
+        });
+      }
+    });
 
     /** 
      * The below function has been temporarily excised because I couldn't get the function it was supporting to work properly. This DID work fine... maybe... I don't know...
@@ -385,6 +399,15 @@ export class SotCActorSheet extends ActorSheet {
               const moduleLine = modules.length
                 ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
                 : "";
+              const payload = {
+                dieType: die.type,
+                total: roll.total,
+                actorId: this.actor.id,
+                itemId: item.id,
+                itemName: item.name,
+                isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(die.type),
+                isDefensive: ["block","evade","counter-block","counter-evade"].includes(die.type)
+              };
 
               return `
                 <div style="margin-bottom: 5px;">
@@ -392,7 +415,7 @@ export class SotCActorSheet extends ActorSheet {
                     <div style="display: flex; gap: 4px;">
                       <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
                       <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${formulaForDisplay}</strong>
-                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
+                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll die!"
                         data-actor-id="${this.actor.id}"
                         data-formula="${die.formula}"
                         data-mod="${mod}"
@@ -403,6 +426,12 @@ export class SotCActorSheet extends ActorSheet {
                         data-itemname="${item.name}"
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-rotate-left"></i>
+                      </a>
+                      <a class="resolve-die"
+                        title="Apply Die!"
+                        data-payload='${JSON.stringify(payload)}'
+                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                        <i class="fas fa-bolt"></i>
                       </a>
                     </div>
                   </span>
@@ -621,6 +650,16 @@ export class SotCActorSheet extends ActorSheet {
               ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
               : "";
 
+            const payload = {
+              dieType: die.type,
+              total: roll.total,
+              actorId: this.actor.id,
+              itemId: item.id,
+              itemName: item.name,
+              isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(die.type),
+              isDefensive: ["block","evade","counter-block","counter-evade"].includes(die.type)
+            };
+
             const icon = `systems/sotc/assets/dice types/${die.type}.png`;
             const colorClass = `die-color-${die.type}`;
             const flavor = `
@@ -642,6 +681,12 @@ export class SotCActorSheet extends ActorSheet {
                         data-itemname="${item.name}"
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-rotate-left"></i>
+                      </a>
+                      <a class="resolve-die"
+                        title="Apply Die!"
+                        data-payload='${JSON.stringify(payload)}'
+                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                        <i class="fas fa-bolt"></i>
                       </a>
                     </div>
                   </span>
@@ -750,13 +795,30 @@ export class SotCActorSheet extends ActorSheet {
     const updates = {};
     // I know this could be more optimized, but I didn't want to ASSUME that somebody wouldn't come in here tampering with stuff and want things to be plainly modifiable.
     // So yeah this in particular is a little bit excessive, but it works fine
-    if (item.system.target === "hp" || item.system.target === "hp_stagger") {
-      updates["system.health.value"] = (this.actor.system.health.value ?? 0) + (delta * sign);
+    if (post_active.operator === "sinking_deluge") {
+      if (item.system.target !== "stagger") {
+        console.log("Sinking Deluge is supposed to target stagger! Find actor-sheet.js lines ~780 if you wanna mess around.")
+      } if (sign !== -1) {
+        console.log("Sinking Deluge is supposed to SUBTRACT stagger! Find actor-sheet.js lines ~780 if you wanna mess around.")
+      }
+      const curr = this.actor.system.stagger.value;
+      delta *= 3
+      let hp_delta = 0
+      hp_delta = Math.floor(Math.min(0, curr + delta * sign) / 2)
+      if (hp_delta) {
+        updates["system.stagger.value"] = 0
+        updates["system.health.value"] = (this.actor.system.health.value ?? 0) + hp_delta
+      } else {
+        updates["system.stagger.value"] = (this.actor.system.stagger.value ?? 0) + (delta * sign);
+      }
+    } else {
+      if (item.system.target === "hp" || item.system.target === "hp_stagger") {
+        updates["system.health.value"] = (this.actor.system.health.value ?? 0) + (delta * sign);
+      }
+      if (item.system.target === "stagger" || item.system.target === "hp_stagger") {
+        updates["system.stagger.value"] = (this.actor.system.stagger.value ?? 0) + (delta * sign);
+      }
     }
-    if (item.system.target === "stagger" || item.system.target === "hp_stagger") {
-      updates["system.stagger.value"] = (this.actor.system.stagger.value ?? 0) + (delta * sign);
-    }
-
     if (Object.keys(updates).length > 0) {
       this.actor.update(updates);
     }
@@ -770,6 +832,7 @@ export class SotCActorSheet extends ActorSheet {
       case "multiply": new_count *= variable; break;
       // Protect against division by 0 because we aren't dumb
       case "divide": new_count = variable !== 0 ? Math.floor(new_count / variable) : new_count; break;
+      case "sinking_deluge": new_count = 0;
       case "maintain": break;
       default: console.warn("Unknown operator, how the heckle did you manage, man? Here it is:", post_active.operator);
     }
@@ -851,15 +914,54 @@ export class SotCActorSheet extends ActorSheet {
   }
 
   /* -------------------------------------------- */
-  // I rather shamelessly stole this. Please review it later to see if this shit actually works or how it actually works, man. You fucking suck.
+  // I rather shamelessly stole this. Please review it later to see if this STUFF (no cursing) actually works or how it actually works, me.
+  // I went back and checked it, and I believe it works just fine. The logic of it is all sensible.
   /** @inheritdoc */
   async _updateObject(event, formData) {
-    const actorData = foundry.utils.expandObject(formData);
-    await this.actor.update(actorData);
+    // The following blocks allow for addition and subtraction to the input fields that are most liable to change (I know that max stagger and health shouldn't change very often /
+    // But even still if they're right next to a field that you can +/- a number in they may as well be consistent.
+    const data = foundry.utils.deepClone(formData);
+
+    // Choosing the select fields
+    const numeric_fields = [
+      "system.health.value",
+      "system.health.max",
+      "system.stagger.value",
+      "system.stagger.max",
+      "system.emotion"
+    ];
+
+    for (const path of numeric_fields) {
+      if (!(path in data)) continue;
+
+      const raw = String(data[path]).trim();
+      if (!raw) continue;
+
+      const current = Number(foundry.utils.getProperty(this.actor, path) ?? 0);
+
+      // Lets algebraic inputs of +/-X be applied to the value
+      if (/^[+-]\d+$/.test(raw)) {
+        data[path] = current + Number(raw);
+      }
+      // Normal number overwrite
+      else if (!isNaN(raw)) {
+        data[path] = Number(raw);
+      }
+      // Disregard input if not a normal number of algebraic +/-X
+      else {
+        delete data[path];
+      }
+    }
+
+    // Updates the actor with received form data
+    const actor_data = foundry.utils.expandObject(data);
+    await this.actor.update(actor_data);
 
     const updates = [];
 
-    for (const [k, v] of Object.entries(formData)) {
+    // Updates items on the actor sheet, such as for updating the count of statuses
+    for (const [k, v] of Object.entries(data)) {
+      // Tests that we're actually working with a real path
       const match = k.match(/^items\.(.+?)\.system\.(.+)$/);
       if (!match) continue;
 
@@ -991,5 +1093,39 @@ export class SotCActorSheet extends ActorSheet {
     formData = EntitySheetHelper.updateAttributes(formData, this.object);
     formData = EntitySheetHelper.updateGroups(formData, this.object);
     return formData;
+  }
+
+  // This is a very, very, extremely basic start for item drag integration. No macro support yet. That stuff made me want to kms tbh ngl rn hahhhahha
+  // mark the time, 3:02am. Saved and """ready""" to ship. Good luck users hahahhhah
+  _onDragItem(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    if (!itemId) return;
+
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    event.dataTransfer.setData("text/plain", JSON.stringify({
+      type: "Item",
+      uuid: item.uuid,
+      sotcCopy: true
+    }));
+  }
+
+  async _onDrop(event) {
+    const data = TextEditor.getDragEventData(event);
+
+    // OUR custom copy behavior
+    if (data?.type === "Item" && data.sotcCopy) {
+      const sourceItem = await fromUuid(data.uuid);
+      if (!sourceItem) return;
+
+      if (sourceItem.parent?.id === this.actor.id) return;
+
+      await this.actor.createEmbeddedDocuments("Item", [sourceItem.toObject()]);
+      return;
+    }
+
+    // EVERYTHING ELSE → let Foundry handle it
+    return super._onDrop(event);
   }
 }

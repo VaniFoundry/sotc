@@ -31,8 +31,40 @@ export class SotCActor extends Actor {
       blunt_mod: 0,
       block_mod: 0,
       evade_mod: 0,
-      speed_mod: 0
+      speed_mod: 0,
+      light_regen_mod: 0,
+      slash_damage_affinity: system.affinities.damage_slash,
+      slash_stagger_affinity: system.affinities.stagger_slash,
+      pierce_damage_affinity: system.affinities.damage_pierce,
+      pierce_stagger_affinity: system.affinities.stagger_pierce,
+      blunt_damage_affinity: system.affinities.damage_blunt,
+      blunt_stagger_affinity: system.affinities.stagger_blunt,
+      null_light_regen: false,
+      null_speed_dice: false,
+      reset_stagger: false
     };
+
+    const stagger_statuses = this.items.filter(i => i.type === "status" && (i.system.condition === "stagger_like") && (i.system.count > 0));
+    for (const stag_stat of stagger_statuses) {
+      const { null_light_regen, null_speed_dice, null_affinities, reset_stagger } = stag_stat.system.stagger_effects;
+      if (null_light_regen) {
+        modifiers.null_light_regen = null_light_regen
+      }
+      if (null_speed_dice) {
+        modifiers.null_speed_dice = null_speed_dice
+      }
+      if (null_affinities) {
+        modifiers.slash_damage_affinity = Math.max(0, modifiers.slash_damage_affinity),
+        modifiers.slash_stagger_affinity = Math.max(0, modifiers.slash_stagger_affinity),
+        modifiers.pierce_damage_affinity = Math.max(0, modifiers.pierce_damage_affinity),
+        modifiers.pierce_stagger_affinity = Math.max(0, modifiers.pierce_stagger_affinity),
+        modifiers.blunt_damage_affinity = Math.max(0, modifiers.blunt_damage_affinity),
+        modifiers.blunt_stagger_affinity = Math.max(0, modifiers.blunt_stagger_affinity)
+      }
+      if (reset_stagger) {
+        modifiers.reset_stagger = reset_stagger
+      }
+    }
 
     const statuses = this.items.filter(i => i.type === "status" && (i.system.condition === "passive") && (i.system.count > 0));
 
@@ -51,6 +83,45 @@ export class SotCActor extends Actor {
         case "block power": modifiers.block_mod += bonus; break;
         case "evade power": modifiers.evade_mod += bonus; break;
         case "speed": modifiers.speed_mod += bonus; break;
+        case "damage affinities": {
+          modifiers.slash_damage_affinity += bonus;
+          modifiers.blunt_damage_affinity += bonus;
+          modifiers.pierce_damage_affinity += bonus; break;
+        }
+        case "stagger affinities": {
+          modifiers.slash_stagger_affinity += bonus;
+          modifiers.blunt_stagger_affinity += bonus;
+          modifiers.pierce_stagger_affinity += bonus; break;
+        }
+        case "damage and stagger affinities": {
+          modifiers.slash_damage_affinity += bonus;
+          modifiers.blunt_damage_affinity += bonus;
+          modifiers.pierce_damage_affinity += bonus;
+          modifiers.slash_stagger_affinity += bonus;
+          modifiers.blunt_stagger_affinity += bonus;
+          modifiers.pierce_stagger_affinity += bonus; break;
+        }
+        case "slash damage affinity": modifiers.slash_damage_affinity += bonus; break;
+        case "slash stagger affinity": modifiers.slash_stagger_affinity += bonus; break;
+        case "slash damage and stagger affinity": {
+          modifiers.slash_damage_affinity += bonus;
+          modifiers.slash_stagger_affinity += bonus; break;
+        }
+        case "pierce damage affinity": modifiers.pierce_damage_affinity += bonus; break;
+        case "pierce stagger affinity": modifiers.pierce_stagger_affinity += bonus; break;
+        case "pierce damage and stagger affinity": {
+          modifiers.pierce_damage_affinity += bonus;
+          modifiers.pierce_stagger_affinity += bonus; break;
+        }
+        case "blunt damage affinity": modifiers.blunt_damage_affinity += bonus; break;
+        case "blunt stagger affinity": modifiers.blunt_stagger_affinity += bonus; break;
+        case "blunt damage and stagger affinity": {
+          modifiers.blunt_damage_affinity += bonus;
+          modifiers.blunt_stagger_affinity += bonus; break;
+        }
+        case "light regen": {
+          modifiers.light_regen_mod += bonus; break;
+        }
       }
     }
 

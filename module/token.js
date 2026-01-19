@@ -16,18 +16,11 @@ export class SotCTokenDocument extends TokenDocument {
   }
 
   /* -------------------------------------------- */
-
-  static getTrackedAttributes(data, _path=[]) {
-    if ( data || _path.length ) return super.getTrackedAttributes(data, _path);
-    data = {};
-    for ( const model of Object.values(game.system.model.Actor) ) {
-      foundry.utils.mergeObject(data, model);
-    }
-    for ( const actor of game.actors ) {
-      if ( actor.isTemplate ) foundry.utils.mergeObject(data, actor.toObject());
-    }
-    return super.getTrackedAttributes(data);
+  /* This thing seems to be messing up the Combat Tracker Settings, so I have e x p u n g e d it.
+  static getTrackedAttributes(data = {}, _path = []) {
+    return super.getTrackedAttributes(data, _path);
   }
+  */
 }
 
 

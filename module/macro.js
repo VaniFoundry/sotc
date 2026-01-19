@@ -21,3 +21,46 @@ export async function createSotCMacro(data, slot) {
   game.user.assignHotbarMacro(macro, slot);
   return false;
 }
+
+export class SOTCHotbar {
+
+  static async createSkillMacro(item, slot) {
+
+    const command = `
+const token = canvas.tokens.controlled[0];
+if (!token) {
+  ui.notifications.warn("Please select a token to roll this skill.");
+  return;
+}
+
+const actor = token.actor;
+const item = actor.items.get("${item.id}");
+if (!item) {
+  ui.notifications.error("Selected actor does not have this skill.");
+  return;
+}
+
+// Fabricate a fake click event for your existing handler
+const sheet = actor.sheet;
+if (!sheet || !sheet._onRollFullSkill) {
+  ui.notifications.error("Actor sheet is not ready.");
+  return;
+}
+
+sheet._onRollFullSkill({
+  currentTarget: {
+    dataset: { itemId: item.id }
+  }
+});
+`;
+
+    const macro = await Macro.create({
+      name: item.name,
+      type: "script",
+      img: item.img,
+      command
+    });
+
+    await game.user.assignHotbarMacro(macro, slot);
+  }
+}

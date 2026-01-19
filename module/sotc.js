@@ -13,16 +13,20 @@ import { SotCPassiveSheet } from "./passive-sheet.js";
 import { SotCToken, SotCTokenDocument } from "./token.js";
 import { preloadHandlebarsTemplates } from "./templates.js";
 import { createSotCMacro } from "./macro.js";
+import { SOTCHotbar } from "./macro.js";
 
 /* -------------------------------------------- */
 /*  Foundry VTT Initialization                  */
 /* -------------------------------------------- */
+
+
 
 /**
  * Init hook.
  */
 Hooks.once("init", async function() {
   console.log("Initializing SotC");
+
 
   /**
    * This doesn't really matter that much, mainly just setting the decimal value and providing a base intiative if you flub it in character creation somehow, or if there's a mistake on my end haha.
@@ -189,8 +193,18 @@ Hooks.once("init", async function() {
 
 /**
  * Macrobar hook.
+Hooks.on("hotbarDrop", async (bar, data, slot) => {
+  if (data.type !== "Item") return true;
+
+  const item = await fromUuid(data.uuid);
+  if (!item) return true;
+
+  if (!["skill", "ego"].includes(item.type)) return true;
+
+  await SOTCHotbar.createSkillMacro(item, slot);
+  return false;
+});
  */
-Hooks.on("hotbarDrop", (bar, data, slot) => createSotCMacro(data, slot));
 
 /**
  * Adds the actor template context menu.
@@ -264,6 +278,20 @@ Hooks.on("renderCombatTracker", (app, html, data) => {
   const root = html instanceof HTMLElement ? html : html[0];
   if (!root) return;
 
+  html.find(".combatant").each((_, el) => {
+    const $el = $(el);
+
+    // If we don't actively remove the status effects then they end up supremely cluttering the initiative tracker
+    $el.find(".token-effects img").each((_, img) => {
+      const statusId = img.dataset.statusId;
+
+      // This one is necessary to keep, obviously
+      if (statusId !== "dead") {
+        img.remove();
+      }
+    });
+  });
+
   for (const li of root.querySelectorAll(".combatant")) {
     const combatantId = li.dataset.combatantId;
     const combatant = game.combat.combatants.get(combatantId);
@@ -290,7 +318,7 @@ Hooks.on("renderCombatTracker", (app, html, data) => {
     icon.classList.add("used_and_unused_icons");
     usedButton.appendChild(icon);
 
-    if (combatant.isOwner || game.user.isGM) {
+    if (combatant.isOwner || game.user.isPrimaryGM) {
       usedButton.addEventListener("click", async (ev) => {
         ev.preventDefault();
         const newUsed = !isUsed;
@@ -319,7 +347,7 @@ Hooks.on("renderCombatTracker", (app, html, data) => {
 Hooks.on("createCombatant", async (combatant, options, userId) => {
   // If someone other than the gm runs the code (as it's run client side), then things get messy and we get duplicate entries
   // As pointed out to me by _twitch_ my former fix of "if (!game.user.isGM) return;" did not work, because we could have assistant GMs in the mix
-  // Now, we let each machine conduct this step, checking to see if they made the combatant. If not, they do nothing, and if so they make the duplicates!
+  // Now, we let each machine conduct this step, checking to see if they made the combatant. If not, they do nothing, and if so then make the duplicates!
   if (typeof userId === "string") {
     if (userId !== game.user.id) return;
   } else {
@@ -355,7 +383,6 @@ Hooks.on("createCombatant", async (combatant, options, userId) => {
 });
 
 Hooks.on("deleteCombatant", async (combatant, options, userId) => {
-  console.log("Combatant deleted", combatant);
   const combat = combatant.parent;
   const actorId = combatant.actorId;
   const tokenId = combatant.tokenId;
@@ -396,150 +423,377 @@ Hooks.on("preRollInitiative", (combat, combatants, rollOptions) => {
   }
 });
 
+// Our most wonderful helper function which accepts the values provided by the status effect created by a user and returns to us the new value for the status effect
+// This doth make for a much more elegant solution than _onPostActive, but you shant see me replace _onPostActive with this update. I am, haha, uhhh, busy
+function applyOperator(value, operator, variable = 0) {
+  switch (operator) {
+    case "maintain": return value;
+    case "clear": return 0;
+    case "add": return value + variable;
+    case "subtract": return Math.max(value - variable, 0);
+    case "multiply": return value * variable;
+    case "divide": return Math.floor(value / Math.max(variable, 1));
+    default: return value;
+  }
+}
+
 // New scene, new initiative! We don't currently preserve the previous round's initiative which SUCKS for the sake of accidentally skipping a round
 Hooks.on("combatRound", async (combat, round) => {
-  console.log("Starting new round: resetting all speed dice initiative");
+  console.log("Starting new round: resetting all speed dice initiative, restoring light, removing stagger_likes (where appropriate), handling end of scene effects");
 
-  const updates = [];
+  const combatant_updates = [];
+  const processed_actors = new Set();
+
 
   for (let c of combat.combatants) {
+    const actor_updates = {};
+    const actor_stag_updates = {};
     const actor = c.actor;
     if (!actor?.system?.speed_dice) continue; // I don't really know WHY we would, but in case you're using an actor in combat with no speed dice then uhhh, yeah?
 
-    updates.push({
-      _id: c.id,
-      initiative: null,
-      'flags.sotc.used': false  // Optionally reset the "used" marker
-    });
-  }
-
-  if (updates.length > 0) {
-    await combat.updateEmbeddedDocuments("Combatant", updates);
-  }
-});
-
-Hooks.once("init", () => {
-  CONFIG.statusEffects = [];
-});
-
-// We provide several modifications here in order to add status effects onto our tokens. Looks nice, is a bad implementation. We should ideally hook this into the original status effects
-Hooks.once("ready", () => {
-  // Keep a handle to the original method
-  const _origDrawEffects = Token.prototype.drawEffects;
-
-  // Patch drawEffects to add our custom status icons (items of type "status" with count > 0)
-  Token.prototype.drawEffects = async function () {
-    // Do the normal Foundry drawing first, which is currently nothing because we have nuked the default status effects from the existence. The exception is DEATH from the initiative tracker
-    await _origDrawEffects.call(this);
-
-    // Remove any previously drawn statuses
-    if (this._sotcStatusIcons && Array.isArray(this._sotcStatusIcons)) {
-      for (const entry of this._sotcStatusIcons) {
-        if (entry?.container?.parent) this.effects.removeChild(entry.container);
+    const stag_status_updates = [];
+    const stag_statuses = actor.items.filter(i => i.type === "status" && (i.system.condition === "stagger_like") && (i.system.count > 0));
+    for (const stag_status of stag_statuses) {
+      if (round.round >= stag_status.system.stagger_end) {
+        if (stag_status.system.stagger_effects?.reset_stagger) {
+          actor_stag_updates["system.stagger.value"] = actor.system.stagger.max
+        }
+        stag_status_updates.push({
+          _id: stag_status.id,
+          "system.count": 0
+        });
       }
     }
-    this._sotcStatusIcons = [];
 
-    const actor = this.actor;
-    if (!actor) return;
+    if (stag_status_updates.length) {
+      await actor.updateEmbeddedDocuments("Item", stag_status_updates);
+    }
 
-    // All status items with count > 0
-    const statuses = actor.items.filter(i => i.type === "status" && (i.system?.count ?? 0) > 0);
-    if (!statuses.length) return;
+    const modifiers = actor.system.modifiers ?? {};
+    if (!modifiers.null_speed_dice) {
+      combatant_updates.push({
+        _id: c.id,
+        initiative: null,
+        "flags.sotc.used": false
+      });
+    }
 
-    const gridSize = canvas.grid.size; 
-    const iconSize = Math.floor(gridSize * 0.24);
-    const pad = 2;
-    const wrapHeight = this.h; // wrap to next column if we run out of vertical space
+    // The above affect should trigger for all instances of a combatant (all speed dice), while everything below this point should only trigger once for an actor
+    if (processed_actors.has(actor.id)) continue;
+    processed_actors.add(actor.id);
 
-    // This starts us in the upper left, but if we wanted to maybe change orientation and arrange it like Ruina status effects, maybe I could do that later
-    let colX = pad;
-    let y = pad;
-
-    for (const st of statuses) {
-      const imgPath = st.img || "icons/svg/aura.svg";
-      const count = Number(st.system.count) || 0;
-
-      // Container for icon + counter
-      const container = new PIXI.Container();
-
-      // Load the status token
-      const tex = await loadTexture(imgPath);
-      const sprite = new PIXI.Sprite(tex);
-      sprite.width = sprite.height = iconSize;
-      sprite.x = 0;
-      sprite.y = 0;
-      container.addChild(sprite);
-
-      // Bottom-left count display
-      if (count > 0) {
-        const style = new PIXI.TextStyle({
-          fontSize: Math.floor(iconSize * 0.4),
-          fill: 0xFFFFFF,
-          stroke: 0x000000,
-          strokeThickness: 4,
-          fontWeight: "900",
-          align: "left"
-        });
-        const badge = new PIXI.Text(String(count), style);
-        badge.anchor.set(0, 1);
-        badge.x = 0;
-        badge.y = iconSize + 3;
-        container.addChild(badge);
+    const status_updates = [];
+    const statuses = actor.items.filter(i => i.type === "status" && (i.system.condition !== "stagger_like") && (i.system.count > 0));
+    let delta_hp = 0;
+    let delta_stagger = 0;
+    for (const status of statuses) {
+      if ((status.system.condition === "active") && (status.system.scene_end_effect.activate_var === "activate")) {
+        const effect_type = status.system.effect;
+        const flat_change = Number(status.system.potency_flat ?? 0)
+        const potency = Number(status.system.potency ?? 1);
+        const count = Number(status.system.count ?? 0);
+        let delta = count * potency + flat_change;
+        const sign = effect_type === "Decrease" ? -1 : 1;
+        if (status.system.target === "hp" || status.system.target === "hp_stagger") {
+          delta_hp += delta * sign
+        }
+        if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
+          delta_stagger += delta * sign
+        }
       }
-
-      // Place container
-      container.x = colX;
-      container.y = y;
-
-      // Add to the token's effects container
-      this.effects.addChild(container);
-      this._sotcStatusIcons.push({ id: st.id, container });
-
-      // Positioning, as with above we can manipulate this if we wanted to change the positionin
-      y += iconSize + pad;
-      if (y + iconSize > wrapHeight) {
-        y = pad;
-        colX += iconSize + pad;
+      if (status.system.scene_end_effect.operator === "clear") {
+        status_updates.push({
+          _id: status.id,
+          "system.count": 0
+        })
+      } else if (status.system.scene_end_effect.operator !== "maintain") {
+        const new_count = applyOperator(status.system.count, status.system.scene_end_effect.operator, status.system.scene_end_effect.variable);
+        status_updates.push({
+          _id: status.id,
+          "system.count": Math.max(new_count, 0)
+        })
       }
+    }
+    if (delta_hp) {
+      actor_updates["system.health.value"] = (actor.system.health.value ?? 0) + delta_hp;
+    }
+    if (delta_stagger) {
+      actor_updates["system.stagger.value"] = (actor.system.stagger.value ?? 0) + delta_stagger;
+    }
+
+    if (status_updates.length) {
+      await actor.updateEmbeddedDocuments("Item", status_updates);
+    }
+
+    const light = actor.system.light;
+    if (!modifiers.null_light_regen) {
+      const current = Number(light.value) || 0;
+      const regen = Number(light.light_regen) || 0;
+      const max = Number(light.max) || current;
+
+      if (regen !== 0 && current < max) {
+        const new_val = Math.min(current + regen, max);
+        actor_updates["system.light.value"] = new_val;
+      }
+    }
+
+
+    if (Object.keys(actor_updates).length) {
+      await actor.update(actor_updates);
+    }
+    if (Object.keys(actor_stag_updates).length) {
+      await actor.update(actor_stag_updates);
+    }
+  }
+  
+  if (combatant_updates.length) {
+    await combat.updateEmbeddedDocuments("Combatant", combatant_updates);
+  }
+
+});
+
+
+// At long last, replacing the previous kind of trash impelementation, we are now hooking our status effects into the default system status effects.
+// And hurray! That means that YOU Mr/Mrs. Player can now mark people as prone and unconscious and asleep!
+const SOTC_BASE_EFFECTS = new Set([
+  "dead",
+  "prone",
+  "unconscious",
+  "sleep"
+]);
+
+// Helper that gets our ActiveEffect for a given status effect which we need for rendering our statuses
+function getActorStatusEffect(actor, statusId) {
+  return actor.effects.find(e => e.statuses?.has(statusId));
+}
+
+// Helper that correctly gives us our ActiveEffects or obliterates them from existence
+async function syncStatusItemEffect(item) {
+  if (item.type !== "status") return;
+  const actor = item.actor;
+  if (!actor) return;
+
+  // Needs testing! If I haven't deleted this comment then I am a chud loser cringelord!!!
+  if (!actor.isOwner || !(game.user === game.users.activeGM)) return;
+
+  const count = Number(item.system?.count ?? 0);
+  const existing = getActorStatusEffect(actor, item.id);
+
+  // Add when need to
+  if (count > 0 && !existing) {
+    await actor.createEmbeddedDocuments("ActiveEffect", [{
+      name: item.name,
+      icon: item.img,
+      statuses: [item.id],
+      origin: item.uuid,
+      transfer: false,
+      flags: {
+        sotc: {
+          statusItemId: item.id
+        }
+      }
+    }]);
+    return;
+  }
+
+  // Remove when need to
+  if (count <= 0 && existing) {
+    await existing.delete();
+  }
+}
+
+Hooks.once("ready", () => {
+
+  const originalToggle = TokenHUD.prototype._onToggleEffect;
+
+  TokenHUD.prototype._onToggleEffect = async function (event) {
+    const img = event.currentTarget;
+    const statusId = img?.dataset?.statusId;
+    if (!statusId) return originalToggle.call(this, event);
+
+    const token = this.object;
+    const actor = token?.actor;
+    if (!actor) return originalToggle.call(this, event);
+
+    // Base statuses are left up to foundry to handle
+    if (SOTC_BASE_EFFECTS.has(statusId)) {
+      return originalToggle.call(this, event);
+    }
+
+    // Yoink, we handle our own custom statuses
+    const item = actor.items.get(statusId);
+    if (!item || item.type !== "status") {
+      return originalToggle.call(this, event);
+    }
+
+    // Because we're now handling our statuses, we interrupt Foundry's handling
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const current = Number(item.system.count ?? 0);
+    const isRightClick = event.button === 2;
+
+    // For our stagger_likes we don't need to display a count since they're binary on/off
+    if (item.system.condition === "stagger_like") {
+      await item.update({ "system.count": current > 0 ? 0 : 1 });
+      return;
+    }
+
+    // This allows us to decrement/increment the count just by using the status HUD
+    if (isRightClick) {
+      await item.update({ "system.count": Math.max(current - 1, 0) });
+    } else {
+      await item.update({ "system.count": current + 1 });
     }
   };
 
-  // Helper to redraw all active tokens for an actor
-  function redrawActorTokens(actor) {
-    if (!actor) return;
-    for (const token of actor.getActiveTokens()) {
-      token.drawEffects();
+  // What a nightmare this was. I couldn't figure it out so I requested ChatGPT's assistance. It's suboptimal as a dev, but
+  // I didn't really have much input here EXCEPT for rigorously durability testing it. 
+  const originalDrawEffects = Token.prototype.drawEffects;
+  Token.prototype.drawEffects = async function (...args) {
+    await originalDrawEffects.apply(this, args);
+
+    // Delay for foundry to finish its work, as we aim to hook onto the status icon and place the count badge on top of it
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    const actor = this.actor;
+    if (!actor || !this.effects) return;
+
+    // Here are the sprites that have been placed previously that we then go backwards from to add the badges to
+    const sprites = this.effects.children.filter(c => c.isSprite);
+    if (!sprites.length) return;
+
+    // Now go through each of the sprites to add the count badges to them
+    for (const effect of actor.effects) {
+      const statusId = effect.flags?.sotc?.statusItemId;
+      if (!statusId) continue;
+
+      const item = actor.items.get(statusId);
+      if (!item || item.type !== "status") continue;
+      if (item.system.condition === "stagger_like") continue;
+
+      const count = Number(item.system.count ?? 0);
+      if (count <= 0) continue;
+
+      // Find matching sprite by icon path, endsWith is critical according to ChatGPT but I don't really parse the magic here
+      const sprite = sprites.find(s => {
+        const src = s.texture?.baseTexture?.resource?.src;
+        return src && src.includes(effect.icon.split("/").pop());
+      });
+
+      if (!sprite) continue;
+
+      // Remove an old badge if it exists
+      for (const child of [...sprite.children]) {
+        if (child.name === "sotc-count") sprite.removeChild(child);
+      }
+
+      // Get the bounds of the sprite so that we appropriately size the elements of the badge according to how big the scene is
+      // This should be better behaved then the previous status effect handler as far as grid sizes go.
+      const bounds = sprite.getLocalBounds();
+
+      const badge = new PIXI.Text(String(count), {
+        fontSize: Math.floor(bounds.width * 0.4),
+        fill: 0xffffff,
+        stroke: 0x000000,
+        strokeThickness: 4,
+        fontWeight: "900"
+      });
+
+      badge.name = "sotc-count";
+      badge.anchor.set(1, 1);
+      badge.position.set(
+        bounds.width,
+        bounds.height
+      )
+
+      sprite.addChild(badge);
     }
-  }
-
-  // Redraw when a status item changes/appears/disappears
-  Hooks.on("updateItem", (item, diff) => {
-    if (item.type !== "status") return;
-    // If count or img changed, redraw (count drives visibility + number)
-    if (diff?.system?.count !== undefined || diff?.img !== undefined) {
-      redrawActorTokens(item.actor);
-    }
-  });
-
-  Hooks.on("createItem", (item) => {
-    if (item.type === "status") redrawActorTokens(item.actor);
-  });
-
-  Hooks.on("deleteItem", (item) => {
-    if (item.type === "status") redrawActorTokens(item.actor);
-  });
-
-  // Also redraw when a token is controlled or released (optional but helps responsiveness)
-  Hooks.on("controlToken", (token) => token?.drawEffects?.());
+  };
 });
 
 Hooks.on("renderTokenHUD", (hud, html, data) => {
-  // Remove the default Foundry status effects button
   const el = html instanceof HTMLElement ? html : html[0];
-  const effectsButton = el.querySelector('[data-action="effects"]');
-  if (effectsButton) effectsButton.remove();
+
+  // Foundry tries really hard to update everything and RUIN my LIFE before I'm able to do what I need to do
+  // So we wait, and then we go
+  requestAnimationFrame(() => {
+    const effectsButton = el.querySelector('[data-action="effects"]');
+    if (!effectsButton) return;
+
+    const effectsPanel = effectsButton.querySelector(".status-effects");
+    if (!effectsPanel) return;
+
+    const token = canvas.tokens.get(data._id);
+    const actor = token?.actor;
+    if (!actor) return;
+
+    effectsPanel.innerHTML = "";
+
+    // The actual actor status effects now that we waited
+    const activeStatuses = new Set();
+    for (const effect of actor.effects.contents) {
+      if (!effect.statuses) continue;
+      for (const id of effect.statuses) activeStatuses.add(id);
+    }
+
+    // Base effects
+    for (const eff of CONFIG.statusEffects) {
+      if (!SOTC_BASE_EFFECTS.has(eff.id)) continue;
+
+      const img = document.createElement("img");
+      img.classList.add("effect-control");
+      img.src = eff.icon;
+      img.title = eff.label;
+      img.dataset.statusId = eff.id;
+
+      if (activeStatuses.has(eff.id)) {
+        img.classList.add("active");
+      }
+
+      effectsPanel.appendChild(img);
+    }
+
+    // Custom status items
+    const statusItems = actor.items.filter(i => i.type === "status");
+    for (const item of statusItems) {
+      const img = document.createElement("img");
+      img.classList.add("effect-control");
+      img.src = item.img;
+      img.title = item.name;
+      img.dataset.statusId = item.id;
+
+      if (activeStatuses.has(item.id)) {
+        img.classList.add("active");
+      }
+
+      effectsPanel.appendChild(img);
+    }
+  });
 });
+
+// Relevent only to our status effects, not any of the other items that may be created. Since our helper only does anything for statuses, we can call this senselessly
+Hooks.on("createItem", async (item) => {
+  await syncStatusItemEffect(item);
+});
+
+Hooks.on("updateItem", async (item, changes) => {
+  if (item.type !== "status") return;
+
+  // Redundant safety
+  if (changes?.system?.count === undefined) return;
+
+  await syncStatusItemEffect(item);
+});
+
+// If we delete something, we want to make sure it doesn't get permanently stuck rendering. That'd be real awkward
+Hooks.on("deleteItem", async (item) => {
+  if (item.type !== "status") return;
+
+  const effect = getStatusEffectForItem(item);
+  if (effect) await effect.delete();
+});
+
 
 Hooks.on("createActor", async (actor, options, userId) => {
   // Load the compendium
@@ -587,6 +841,8 @@ Hooks.on("renderChatMessage", (message, html) => {
       modules = [];
     }
 
+
+
     try {
       const roll = await (new Roll(total)).roll({ async: true });
 
@@ -596,6 +852,14 @@ Hooks.on("renderChatMessage", (message, html) => {
             modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")
           }</em></div>`
         : "";
+
+      const payload = {
+        dieType: type,
+        total: roll.total,
+        itemName: item_name,
+        isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(type),
+        isDefensive: ["block","evade","counter-block","counter-evade"].includes(type)
+      };
 
       const messageContent = `
         <div class="skill-die-roll">
@@ -613,9 +877,15 @@ Hooks.on("renderChatMessage", (message, html) => {
                   data-color="${colorClass}"
                   data-modules='${JSON.stringify(modules)}'
                   data-itemname="${item_name}"
-                  title="Reroll this die" 
+                  title="Reroll die!" 
                   style="width: 16px; height: 16px; color: black; margin-top: 4px; margin-left: 8px;">
                   <i class="fas fa-rotate-left"></i>
+                </a>
+                <a class="resolve-die"
+                  title="Apply Die!"
+                  data-payload='${JSON.stringify(payload)}'
+                  style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                  <i class="fas fa-bolt"></i>
                 </a>
               </div>
             </span>
@@ -632,7 +902,101 @@ Hooks.on("renderChatMessage", (message, html) => {
 
     } catch (err) {
       console.error("Reroll failed:", err);
-      ui.notifications.error("Could not reroll this die.");
+      ui.notifications.error("Could not reroll... :(");
     }
   });
+
+  // Everything below this point should REALLY be in a separate .js document. I did this here because I could not be fucked to move it over
+  // It is sunday, at 2:25 am and I feel like that one guy who did some songs for furi who names his tracks after the time when he finishes them
+  // which is to say... fulfilled? I'm basically there and just reviewing code at this point...
+  // But I kind of want to explode...
+  html.find(".resolve-die").on("click", ev => {
+    const payload = JSON.parse(ev.currentTarget.dataset.payload);
+    openDamageWizard(payload);
+  });
 });
+
+async function openDamageWizard(payload) {
+  const targets = Array.from(game.user.targets);
+  if (!targets.length) {
+    return ui.notifications.warn("Select a target!");
+  }
+
+  const token = targets[0];
+  const actor = token.actor;
+
+  const content = await renderTemplate("systems/sotc/templates/damage-wizard.html", {
+    payload
+  });
+
+  new Dialog({
+    title: `Damage Wizard`,
+    content,
+    buttons: {
+      resolve: {
+        label: "Resolve",
+        callback: html => resolveDamage(payload, html, actor)
+      },
+      cancel: { label: "Cancel" }
+    }
+  }, {
+    classes: ["sotc_damage_wizard"]
+  }).render(true);
+}
+
+async function resolveDamage(payload, html, targetActor) {
+  const mod = Number(html.find('[name="mod"]').val() || 0);
+  const defenderType = html.find('[name="defender_die_type"]').val();
+  const defenderRoll = Number(html.find('[name="defender_die"]').val() || 0);
+
+  const attack = payload.total + mod;
+
+  let damage = 0;
+  let stagger = 0;
+
+  if (payload.isDefensive && (defenderType === "evade" || defenderType === "counter-evade") && (defenderRoll > attack)) {
+    const curr = targetActor.system.stagger.value;
+    const final = Math.min(targetActor.system.stagger.max, curr + defenderRoll - attack);
+    await targetActor.update({ "system.stagger.value": final });
+    return;
+  }
+
+  // With evasion taken care of, we can just straight up leave if the attack roll is less than or equal to the defender's roll (clash won)
+  if (defenderRoll >= attack) return;
+
+  if (payload.isOffensive) {
+    damage = attack;
+    stagger = attack;
+    if (payload.dieType === "slash" || payload.dieType === "counter-slash") {
+      damage = Math.max(0, damage + targetActor.system.modifiers.slash_damage_affinity);
+      stagger = Math.max(0, stagger + targetActor.system.modifiers.slash_stagger_affinity);
+    } else if (payload.dieType === "pierce" || payload.dieType === "counter-pierce") {
+      damage = Math.max(0, damage + targetActor.system.modifiers.pierce_damage_affinity);
+      stagger = Math.max(0, stagger + targetActor.system.modifiers.pierce_stagger_affinity);
+    } else {
+      damage = Math.max(0, damage + targetActor.system.modifiers.blunt_damage_affinity);
+      stagger = Math.max(0, stagger + targetActor.system.modifiers.blunt_stagger_affinity);
+    }
+    if (defenderType === "block" || defenderType === "counter-block") {
+      damage = Math.max(0, damage - defenderRoll);
+      stagger = Math.max(0, stagger - defenderRoll);
+    }
+    if (defenderType === "evade" || defenderType === "counter-evade") {
+      stagger = Math.max(0, stagger - defenderRoll);
+    }
+  }
+
+  if (payload.dieType === "block" || payload.dieType === "counter-block") {
+    stagger = attack - defenderRoll // For the most microscopic of optimizations, we already know that attack > defenderRoll, so no need to Math.max
+  }
+
+  const curr_hp = targetActor.system.health.value;
+  const curr_stagger = targetActor.system.stagger.value;
+  const final_hp = curr_hp - damage
+  const final_stagger = curr_stagger - stagger
+
+  await targetActor.update({
+    "system.health.value": final_hp,
+    "system.stagger.value": final_stagger
+  });
+}

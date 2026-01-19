@@ -255,7 +255,7 @@ async _onRollSkillDie(event) {
             <div style="display: flex; gap: 4px;">
               <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
               <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${roll_formula}</strong>
-                <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
+                <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll die!"
                   data-formula="${die.formula}"
                   data-mod="0"
                   data-statmod="${status_mod}"
