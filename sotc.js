@@ -64,13 +64,10 @@ Hooks.once("init", async function() {
       for (let c of combatants) {
         const actorId = c.actorId;
         const base_combatant = this.combatants.find(b =>
-          b.actorId === actorId && !b.flags?.sotc?.isSpeedDieClone
-        ) ?? c;
-
-        // For unlinked tokens each token has its own synthetic actor with its own statuses.
-        // Using base_combatant.actor would read from the shared base actor and miss per-token
-        // statuses like Haste and Bind applied to individual mook copies.
-        const actor = c.token?.isLinked ? base_combatant.actor : c.actor;
+        b.actorId === actorId && !b.flags?.sotc?.isSpeedDieClone
+      ) ?? c;
+        
+        const actor = base_combatant.actor;
         if (!actor) continue;
         await actor.prepareData();
         await actor.prepareDerivedData();
@@ -78,9 +75,9 @@ Hooks.once("init", async function() {
         const actor_formula = actor?.system?.speed_dice?.dice_size;
         let total_formula = `${actor_formula}`
 
-        // actor.system.modifiers.speed_mod is already computed from statuses in actor.js
-        // so we use it directly — computeSpeedModFromStatuses would double-count
-        const init_mod = actor?.system?.modifiers.speed_mod ?? 0;
+        const status_speed_mod = computeSpeedModFromStatuses(actor);
+        const stored_speed_mod = actor?.system?.modifiers.speed_mod ?? 0;
+        const init_mod = status_speed_mod || stored_speed_mod || 0;
 
         const actor_type = actor?.system?.initiative_type;
         
@@ -880,21 +877,6 @@ Hooks.on("renderTokenHUD", (hud, html, data) => {
 });
 
 // Relevent only to our status effects, not any of the other items that may be created. Since our helper only does anything for statuses, we can call this senselessly
-// When a canvas/map loads, force all tokens to redraw their effects so count badges appear immediately.
-// Without this, badges only show after a token is interacted with or updated.
-Hooks.on("canvasReady", async () => {
-  // Wait for Foundry to fully initialize all synthetic actors on unlinked tokens.
-  // Without this delay, mook actors aren't prepared yet and items/effects are empty.
-  await new Promise(resolve => setTimeout(resolve, 500));
-  for (const token of canvas.tokens.placeables) {
-    const actor = token.actor;
-    if (!actor) continue;
-    // Ensure the actor's data is fully prepared before drawing badges
-    await actor.prepareData();
-    await token.drawEffects();
-  }
-});
-
 Hooks.on("createItem", async (item) => {
   await syncStatusItemEffect(item);
 });
