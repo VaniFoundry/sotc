@@ -64,13 +64,10 @@ Hooks.once("init", async function() {
       for (let c of combatants) {
         const actorId = c.actorId;
         const base_combatant = this.combatants.find(b =>
-          b.actorId === actorId && !b.flags?.sotc?.isSpeedDieClone
-        ) ?? c;
-
-        // For unlinked tokens each token has its own synthetic actor with its own statuses.
-        // Using base_combatant.actor would read from the shared base actor and miss per-token
-        // statuses like Haste and Bind applied to individual mook copies.
-        const actor = c.token?.isLinked ? base_combatant.actor : c.actor;
+        b.actorId === actorId && !b.flags?.sotc?.isSpeedDieClone
+      ) ?? c;
+        
+        const actor = base_combatant.actor;
         if (!actor) continue;
         await actor.prepareData();
         await actor.prepareDerivedData();
@@ -78,9 +75,9 @@ Hooks.once("init", async function() {
         const actor_formula = actor?.system?.speed_dice?.dice_size;
         let total_formula = `${actor_formula}`
 
-        // actor.system.modifiers.speed_mod is already computed from statuses in actor.js
-        // so we use it directly — computeSpeedModFromStatuses would double-count
-        const init_mod = actor?.system?.modifiers.speed_mod ?? 0;
+        const status_speed_mod = computeSpeedModFromStatuses(actor);
+        const stored_speed_mod = actor?.system?.modifiers.speed_mod ?? 0;
+        const init_mod = status_speed_mod || stored_speed_mod || 0;
 
         const actor_type = actor?.system?.initiative_type;
         
@@ -103,16 +100,41 @@ Hooks.once("init", async function() {
 
         updates.push({ _id: c.id, initiative: final_init });
 
-        // Post chat message
+        // Post chat message — sound is suppressed here; rollAll plays it once manually
         await roll.toMessage({
           speaker: ChatMessage.getSpeaker({ actor: c.actor }),
           flavor: `${c.name} rolls initiative (${roll.total - init_mod} → ${final_init})`,
+          sound: CONFIG.sounds.dice ?? null,
         }, messageOptions);
       }
 
       // Update initiatives
       await this.updateEmbeddedDocuments("Combatant", updates);
       if (updateTurn) this.update({ turn: this.turns.findIndex(t => t.initiative !== null) });
+      return this;
+    }
+
+    async rollAll(options = {}) {
+      // Roll all combatants ourselves in one batch — bypassing super.rollAll()
+      // so we can guarantee the sound plays exactly once at the end.
+      const ids = this.combatants
+        .filter(c => c.initiative === null)
+        .map(c => c.id);
+      if (!ids.length) return this;
+
+      // Silence sound for every individual roll
+      const originalSound = CONFIG.sounds.dice;
+      CONFIG.sounds.dice = null;
+      try {
+        await this.rollInitiative(ids, options);
+      } finally {
+        CONFIG.sounds.dice = originalSound;
+      }
+
+      // Play once
+      if (originalSound) {
+        foundry.audio.AudioHelper.play({ src: originalSound, volume: 0.8, autoplay: true, loop: false }, true);
+      }
       return this;
     }
   }
@@ -482,9 +504,8 @@ Hooks.on("combatRound", async (combat, round) => {
     }
 
     // The above affect should trigger for all instances of a combatant (all speed dice), while everything below this point should only trigger once for an actor
-    const processed_key = c.token?.isLinked ? actor.id : c.tokenId;
-    if (processed_actors.has(processed_key)) continue;
-    processed_actors.add(processed_key);
+    if (processed_actors.has(actor.id)) continue;
+    processed_actors.add(actor.id);
 
     const status_updates = [];
     const statuses = actor.items.filter(i => i.type === "status" && (i.system.condition !== "stagger_like") && (i.system.count > 0));
@@ -557,109 +578,6 @@ Hooks.on("combatRound", async (combat, round) => {
 });
 
 
-// When combat ends entirely, run the same end-of-scene logic that combatRound runs.
-// Without this, statuses with scene_end_effect operators never fire on the final round.
-Hooks.on("deleteCombat", async (combat) => {
-  console.log("Combat ended: running end scene effects, clearing stagger_likes, restoring light.");
-
-  const processed_actors = new Set();
-
-  for (let c of combat.combatants) {
-    const actor_updates = {};
-    const actor_stag_updates = {};
-    const actor = c.actor;
-    if (!actor?.system?.speed_dice) continue;
-
-    // Clear any remaining stagger_like statuses
-    const stag_status_updates = [];
-    const stag_statuses = actor.items.filter(i =>
-      i.type === "status" &&
-      i.system.condition === "stagger_like" &&
-      i.system.count > 0
-    );
-    for (const stag_status of stag_statuses) {
-      if (stag_status.system.stagger_effects?.reset_stagger) {
-        actor_stag_updates["system.stagger.value"] = actor.system.stagger.max;
-      }
-      stag_status_updates.push({ _id: stag_status.id, "system.count": 0 });
-    }
-    if (stag_status_updates.length) {
-      await actor.updateEmbeddedDocuments("Item", stag_status_updates);
-    }
-
-    // Only process scene end effects once per actor (multiple speed dice combatants share an actor)
-    const processed_key = c.token?.isLinked ? actor.id : c.tokenId;
-    if (processed_actors.has(processed_key)) continue;
-    processed_actors.add(processed_key);
-
-    const modifiers = actor.system.modifiers ?? {};
-    const status_updates = [];
-    const statuses = actor.items.filter(i =>
-      i.type === "status" &&
-      i.system.condition !== "stagger_like" &&
-      i.system.count > 0
-    );
-
-    let delta_hp = 0;
-    let delta_stagger = 0;
-
-    for (const status of statuses) {
-      if (
-        status.system.condition === "active" &&
-        status.system.scene_end_effect?.activate_var === "activate"
-      ) {
-        const effect_type = status.system.effect;
-        const flat_change = Number(status.system.potency_flat ?? 0);
-        const potency = Number(status.system.potency ?? 1);
-        const count = Number(status.system.count ?? 0);
-        const delta = count * potency + flat_change;
-        const sign = effect_type === "Decrease" ? -1 : 1;
-        if (status.system.target === "hp" || status.system.target === "hp_stagger") {
-          delta_hp += delta * sign;
-        }
-        if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
-          delta_stagger += delta * sign;
-        }
-      }
-      const op = status.system.scene_end_effect?.operator;
-      if (op === "clear") {
-        status_updates.push({ _id: status.id, "system.count": 0 });
-      } else if (op && op !== "maintain") {
-        const new_count = applyOperator(
-          status.system.count,
-          op,
-          status.system.scene_end_effect.variable
-        );
-        status_updates.push({ _id: status.id, "system.count": Math.max(new_count, 0) });
-      }
-    }
-
-    if (delta_hp) {
-      actor_updates["system.health.value"] = (actor.system.health.value ?? 0) + delta_hp;
-    }
-    if (delta_stagger) {
-      actor_updates["system.stagger.value"] = (actor.system.stagger.value ?? 0) + delta_stagger;
-    }
-    if (status_updates.length) {
-      await actor.updateEmbeddedDocuments("Item", status_updates);
-    }
-
-    // Restore light at combat end, same as round start
-    const light = actor.system.light;
-    if (!modifiers.null_light_regen) {
-      const current = Number(light.value) || 0;
-      const regen = Number(light.light_regen) || 0;
-      const max = Number(light.max) || current;
-      if (regen !== 0 && current < max) {
-        actor_updates["system.light.value"] = Math.min(current + regen, max);
-      }
-    }
-
-    if (Object.keys(actor_updates).length) await actor.update(actor_updates);
-    if (Object.keys(actor_stag_updates).length) await actor.update(actor_stag_updates);
-  }
-});
-
 // At long last, replacing the previous kind of trash impelementation, we are now hooking our status effects into the default system status effects.
 // And hurray! That means that YOU Mr/Mrs. Player can now mark people as prone and unconscious and asleep!
 const SOTC_BASE_EFFECTS = new Set([
@@ -711,6 +629,36 @@ async function syncStatusItemEffect(item) {
 
 Hooks.once("ready", () => {
 
+  // ── Custom dice sound ───────────────────────────────────────────────────
+  CONFIG.sounds.dice = "systems/sotc/assets/audio/speed_dice.mp3";
+  console.log("sotc | Custom dice sound registered ✓");
+
+  // ── Socket: allow players to update actors they do not own (e.g. applying
+  // ── damage to an enemy token). The active GM executes the update.
+  const SOCKET_NAME = "system.sotc";
+
+  game.socket.on(SOCKET_NAME, async (data) => {
+    if (!game.user.isGM || !game.users.activeGM?.isSelf) return;
+    if (data.type === "actorUpdate") {
+      const actor = game.actors.get(data.actorId);
+      if (!actor) return;
+      await actor.update(data.updates);
+    }
+  });
+
+  /**
+   * Update an actor. If the user owns it, update directly.
+   * Otherwise proxy through the GM via socket.
+   */
+  game.sotc.updateActor = async function(actor, updates) {
+    if (actor.isOwner) {
+      await actor.update(updates);
+    } else {
+      game.socket.emit(SOCKET_NAME, { type: "actorUpdate", actorId: actor.id, updates });
+    }
+  };
+
+
   const originalToggle = TokenHUD.prototype._onToggleEffect;
 
   TokenHUD.prototype._onToggleEffect = async function (event) {
@@ -756,18 +704,14 @@ Hooks.once("ready", () => {
 
   // What a nightmare this was. I couldn't figure it out so I requested ChatGPT's assistance. It's suboptimal as a dev, but
   // I didn't really have much input here EXCEPT for rigorously durability testing it. 
-  const originalDrawEffects = Token.prototype.drawEffects;
-  Token.prototype.drawEffects = async function (...args) {
-    await originalDrawEffects.apply(this, args);
-
-    // Delay for foundry to finish its work, as we aim to hook onto the status icon and place the count badge on top of it
-    await new Promise(resolve => requestAnimationFrame(resolve));
-
-    const actor = this.actor;
-    if (!actor || !this.effects) return;
+  // Shared helper — draws count badges onto a token's effect sprites.
+  // Extracted so it can be called from both drawEffects and canvasReady.
+  function drawCountBadges(token) {
+    const actor = token.actor;
+    if (!actor || !token.effects) return;
 
     // Here are the sprites that have been placed previously that we then go backwards from to add the badges to
-    const sprites = this.effects.children.filter(c => c.isSprite);
+    const sprites = token.effects.children.filter(c => c.isSprite);
     if (!sprites.length) return;
 
     // Now go through each of the sprites to add the count badges to them
@@ -809,14 +753,32 @@ Hooks.once("ready", () => {
 
       badge.name = "sotc-count";
       badge.anchor.set(1, 1);
-      badge.position.set(
-        bounds.width,
-        bounds.height
-      )
+      badge.position.set(bounds.width, bounds.height);
 
       sprite.addChild(badge);
     }
+  }
+
+  const originalDrawEffects = Token.prototype.drawEffects;
+  Token.prototype.drawEffects = async function (...args) {
+    await originalDrawEffects.apply(this, args);
+
+    // Capture reference — 'this' is not safe inside the rAF callback
+    const token = this;
+
+    // Yield one frame for Foundry to finish placing sprites, then badge synchronously
+    requestAnimationFrame(() => drawCountBadges(token));
   };
+});
+
+// On F5, drawEffects fires before textures and ActiveEffects are fully ready.
+// Wait 500ms after canvasReady to ensure everything is loaded, then redraw all badges.
+Hooks.on("canvasReady", () => {
+  setTimeout(() => {
+    for (const token of canvas.tokens.placeables) {
+      token.drawEffects();
+    }
+  }, 500);
 });
 
 Hooks.on("renderTokenHUD", (hud, html, data) => {
@@ -880,21 +842,6 @@ Hooks.on("renderTokenHUD", (hud, html, data) => {
 });
 
 // Relevent only to our status effects, not any of the other items that may be created. Since our helper only does anything for statuses, we can call this senselessly
-// When a canvas/map loads, force all tokens to redraw their effects so count badges appear immediately.
-// Without this, badges only show after a token is interacted with or updated.
-Hooks.on("canvasReady", async () => {
-  // Wait for Foundry to fully initialize all synthetic actors on unlinked tokens.
-  // Without this delay, mook actors aren't prepared yet and items/effects are empty.
-  await new Promise(resolve => setTimeout(resolve, 500));
-  for (const token of canvas.tokens.placeables) {
-    const actor = token.actor;
-    if (!actor) continue;
-    // Ensure the actor's data is fully prepared before drawing badges
-    await actor.prepareData();
-    await token.drawEffects();
-  }
-});
-
 Hooks.on("createItem", async (item) => {
   await syncStatusItemEffect(item);
 });
@@ -912,43 +859,10 @@ Hooks.on("updateItem", async (item, changes) => {
 Hooks.on("deleteItem", async (item) => {
   if (item.type !== "status") return;
 
-  const actor = item.actor;
-  if (!actor) return;
-
-  const effect = getActorStatusEffect(actor, item.id);
+  const effect = getStatusEffectForItem(item);
   if (effect) await effect.delete();
 });
 
-
-// When a token is linked to an actor, ensure the actor has all default statuses.
-// Without this, linking a token erases untracked embedded statuses since the actor becomes the source of truth.
-Hooks.on("updateToken", async (tokenDocument, changes, options, userId) => {
-  // Only care about actorLink being set to true
-  if (!changes.actorLink) return;
-
-  // Only run on the user who made the change to avoid duplicate writes
-  if (userId !== game.user.id) return;
-
-  const actor = tokenDocument.actor;
-  if (!actor) return;
-
-  const pack = game.packs.get("sotc.default-statuses");
-  if (!pack) {
-    console.error("SotC | Default statuses compendium not found.");
-    return;
-  }
-
-  const statuses = await pack.getDocuments();
-  const items = statuses.map(s => s.toObject());
-
-  // Add any missing statuses — skip ones the actor already has by name
-  const missing = items.filter(item => !actor.items.some(ai => ai.name === item.name));
-  if (missing.length) {
-    await actor.createEmbeddedDocuments("Item", missing);
-    console.log(`SotC | Linked token: added ${missing.length} missing status(es) to ${actor.name}.`);
-    ui.notifications.info(`${actor.name}: ${missing.length} missing status(es) restored after linking.`);
-  }
-});
 
 Hooks.on("createActor", async (actor, options, userId) => {
   // Load the compendium
@@ -1013,7 +927,8 @@ Hooks.on("renderChatMessage", (message, html) => {
         total: roll.total,
         itemName: item_name,
         isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(type),
-        isDefensive: ["block","evade","counter-block","counter-evade"].includes(type)
+        isDefensive: ["block","evade","counter-block","counter-evade"].includes(type),
+        actorId: ChatMessage.getSpeaker()?.actor ?? null
       };
 
       const messageContent = `
@@ -1067,91 +982,410 @@ Hooks.on("renderChatMessage", (message, html) => {
   // But I kind of want to explode...
   html.find(".resolve-die").on("click", ev => {
     const payload = JSON.parse(ev.currentTarget.dataset.payload);
-    openDamageWizard(payload);
+    openDamageWizard(payload); // token is resolved inside from game.user.targets
   });
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DAMAGE WIZARD
+//
+//  Clash result AUTO-DETECTED from rolls:
+//    defender = 0         → Unopposed
+//    attacker > defender  → Clash Win
+//    attacker = defender  → Clash Tie
+//    attacker < defender  → Clash Lose
+//
+//  Clash Lose applies damage TO THE ATTACKER (who lost):
+//    Offensive [Lose vs Offensive] → attacker takes damage+stagger = defender's roll
+//    Block     [Lose vs Offensive] → attacker takes net = defender - block power
+//    Evade     [Lose vs Offensive] → attacker takes net stagger = defender - evade power
+//
+//  All actor updates go through game.sotc.updateActor so players can apply
+//  damage to tokens they don't own (proxied through the GM via socket).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Strip "counter-" prefix so logic works for both regular and counter dice. */
+function normaliseType(t) {
+  return (t || "").replace(/^counter-/, "");
+}
+
+function isOffensiveType(t) {
+  return ["slash", "pierce", "blunt"].includes(normaliseType(t));
+}
+
+function isDefensiveType(t) {
+  return ["block", "evade"].includes(normaliseType(t));
+}
+
+/**
+ * Resolve the attacker actor from payload.actorId.
+ * Falls back to the first controlled token if missing.
+ * NOTE: also set actorId in skill-sheet.js when building the initial roll payload.
+ */
+function resolveAttackerActor(payload) {
+  if (payload.actorId) {
+    const a = game.actors.get(payload.actorId);
+    if (a) return a;
+  }
+  return canvas.tokens?.controlled?.[0]?.actor ?? null;
+}
+
+/**
+ * Apply slash/pierce/blunt affinity modifiers to a base damage and stagger value.
+ * Returns [finalDamage, finalStagger].
+ */
+function applyAffinities(actor, dieBase, baseDmg, baseStagger) {
+  const m = actor.system.modifiers;
+  if (dieBase === "slash") {
+    return [
+      Math.max(0, baseDmg     + (m.slash_damage_affinity  ?? 0)),
+      Math.max(0, baseStagger + (m.slash_stagger_affinity ?? 0))
+    ];
+  } else if (dieBase === "pierce") {
+    return [
+      Math.max(0, baseDmg     + (m.pierce_damage_affinity  ?? 0)),
+      Math.max(0, baseStagger + (m.pierce_stagger_affinity ?? 0))
+    ];
+  } else {
+    return [
+      Math.max(0, baseDmg     + (m.blunt_damage_affinity  ?? 0)),
+      Math.max(0, baseStagger + (m.blunt_stagger_affinity ?? 0))
+    ];
+  }
+}
+
+/**
+ * Apply stat changes to an actor. Routes through game.sotc.updateActor
+ * so players can affect tokens they don't own (GM proxies via socket).
+ *   dmg         > 0  → removes HP
+ *   stagger     > 0  → removes stagger
+ *   staggerGain > 0  → restores stagger
+ */
+async function applyStats(actor, { dmg = 0, stagger = 0, staggerGain = 0 } = {}) {
+  const updates = {};
+
+  if (dmg > 0) {
+    updates["system.health.value"] = (actor.system.health.value ?? 0) - dmg;
+  }
+  if (stagger > 0) {
+    const curr  = actor.system.stagger.value ?? 0;
+    const maxSt = actor.system.stagger.max   ?? curr;
+    updates["system.stagger.value"] = Math.max(0, Math.min(maxSt, curr - stagger));
+  }
+  if (staggerGain > 0) {
+    const curr  = actor.system.stagger.value ?? 0;
+    const maxSt = actor.system.stagger.max   ?? curr;
+    updates["system.stagger.value"] = Math.min(maxSt, curr + staggerGain);
+  }
+
+  if (Object.keys(updates).length) {
+    await game.sotc.updateActor(actor, updates);
+  }
+}
+
+/**
+ * Build and open the Damage Wizard dialog.
+ * Opposing die type is chosen via one-click icon buttons (no dropdown).
+ */
 async function openDamageWizard(payload) {
   const targets = Array.from(game.user.targets);
   if (!targets.length) {
-    return ui.notifications.warn("Select a target!");
+    return ui.notifications.warn("Select a target first!");
   }
 
-  const token = targets[0];
-  const actor = token.actor;
+  const token   = targets[0];
+  const actor   = token.actor;
+  const dieBase = normaliseType(payload.dieType);
 
-  const content = await renderTemplate("systems/sotc/templates/damage-wizard.html", {
-    payload
-  });
+  const badgeColor = isOffensiveType(dieBase) ? "#7a1a1a"
+                   : dieBase === "block"       ? "#1a3f7a"
+                   :                             "#1a5e35";
+
+  const dieButtons = [
+    { value: "none",   label: "None",   icon: null,                                          color: "#444"    },
+    { value: "slash",  label: "Slash",  icon: "systems/sotc/assets/dice types/slash.png",   color: "#8b1a1a" },
+    { value: "pierce", label: "Pierce", icon: "systems/sotc/assets/dice types/pierce.png",  color: "#7a3a00" },
+    { value: "blunt",  label: "Blunt",  icon: "systems/sotc/assets/dice types/blunt.png",   color: "#5a4a00" },
+    { value: "block",  label: "Block",  icon: "systems/sotc/assets/dice types/block.png",   color: "#1a3f7a" },
+    { value: "evade",  label: "Evade",  icon: "systems/sotc/assets/dice types/evade.png",   color: "#1a5e35" },
+  ];
+
+  const btnHTML = dieButtons.map((b, i) => `
+    <button type="button"
+      class="sotc-die-btn"
+      data-value="${b.value}"
+      data-accent="${b.color}"
+      style="
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:4px; padding:6px 4px; border-radius:6px; cursor:pointer;
+        border:2px solid ${i === 0 ? b.color : "transparent"};
+        background:${i === 0 ? b.color + "33" : "#1e1b2e"};
+        color:${i === 0 ? "#fff" : "#aaa"};
+        font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+        flex:1; min-width:0;
+      "
+      onclick="
+        this.closest('.sotc-wizard-wrap').querySelectorAll('.sotc-die-btn').forEach(el => {
+          el.style.borderColor = 'transparent';
+          el.style.background  = '#1e1b2e';
+          el.style.color       = '#aaa';
+        });
+        this.style.borderColor = this.dataset.accent;
+        this.style.background  = this.dataset.accent + '33';
+        this.style.color       = '#fff';
+        this.closest('.sotc-wizard-wrap').querySelector('[name=defender_die_type]').value = this.dataset.value;
+      "
+    >
+      ${b.icon
+        ? `<img src="${b.icon}" style="width:28px;height:28px;border:none;object-fit:contain;" />`
+        : `<span style="font-size:18px;line-height:28px;color:#888;">✕</span>`
+      }
+      ${b.label}
+    </button>
+  `).join("");
+
+  const INPUT_STYLE = `background:#f5f0e8; color:#1a1a1a; border:1px solid #8a7a5a; border-radius:4px; padding:5px 8px; width:100%; box-sizing:border-box; font-size:14px; margin-top:3px;`;
+  const LABEL_STYLE = `display:block; font-weight:600; color:#c9a227; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; margin-top:10px;`;
+
+  const content = `
+    <style>
+      .sotc-wizard-wrap { font-family:"Signika",sans-serif; padding:4px 2px; }
+      .sotc-wizard-header {
+        display:flex; align-items:center; gap:10px;
+        background:#1e1b2e; border:1px solid #4a3f6b;
+        border-radius:8px; padding:10px 14px; margin-bottom:10px;
+      }
+      .sotc-wizard-badge {
+        background:${badgeColor}; color:#fff; border-radius:4px;
+        padding:2px 8px; font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:0.08em; white-space:nowrap;
+      }
+      .sotc-wizard-name  { color:#e8d9a0; font-weight:700; font-size:14px; flex:1; }
+      .sotc-wizard-total { color:#fff; font-size:22px; font-weight:900; min-width:32px; text-align:right; }
+      .sotc-section { background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; }
+      .sotc-die-btn:hover { opacity:0.85; }
+      .sotc-wizard-hint  { color:#888; font-size:11px; margin-top:3px; display:block; }
+    </style>
+    <div class="sotc-wizard-wrap">
+      <div class="sotc-wizard-header">
+        <span class="sotc-wizard-badge">${payload.dieType}</span>
+        <span class="sotc-wizard-name">${payload.itemName}</span>
+        <span class="sotc-wizard-total">${payload.total}</span>
+      </div>
+      <div class="sotc-section">
+        <label style="${LABEL_STYLE}">Check Modifier (Attacker's Roll)
+          <input type="number" name="mod" value="0" style="${INPUT_STYLE}" />
+        </label>
+        <label style="${LABEL_STYLE} margin-bottom:6px;">Opposing Die Type</label>
+        <input type="hidden" name="defender_die_type" value="none" />
+        <div style="display:flex; gap:5px; margin-top:2px;">
+          ${btnHTML}
+        </div>
+        <label style="${LABEL_STYLE}">Opposing Die Roll
+          <input type="number" name="defender_die" value="0" min="0" style="${INPUT_STYLE}" />
+          <span class="sotc-wizard-hint">Leave at 0 for Unopposed</span>
+        </label>
+      </div>
+    </div>
+  `;
 
   new Dialog({
-    title: `Damage Wizard`,
+    title: `Damage Wizard — ${payload.itemName}`,
     content,
     buttons: {
       resolve: {
+        icon: '<i class="fas fa-bolt"></i>',
         label: "Resolve",
-        callback: html => resolveDamage(payload, html, actor)
+        callback: html => resolveDamage(payload, html, actor, token)
       },
-      cancel: { label: "Cancel" }
-    }
-  }, {
-    classes: ["sotc_damage_wizard"]
-  }).render(true);
+      cancel: {
+        icon: '<i class="fas fa-times"></i>',
+        label: "Cancel"
+      }
+    },
+    default: "resolve"
+  }, { classes: ["sotc_damage_wizard"], width: 390 }).render(true);
 }
 
-async function resolveDamage(payload, html, targetActor) {
-  const mod = Number(html.find('[name="mod"]').val() || 0);
-  const defenderType = html.find('[name="defender_die_type"]').val();
-  const defenderRoll = Number(html.find('[name="defender_die"]').val() || 0);
+/**
+ * Core resolution. Clash result is auto-detected.
+ * targetActor   = selected token (receives win/unopposed damage)
+ * attackerActor = from payload.actorId (receives clash-lose damage)
+ * Both are updated via game.sotc.updateActor to support non-owned targets.
+ */
+async function resolveDamage(payload, html, targetActor, targetToken) {
+  const mod          = Number(html.find('[name="mod"]').val()                || 0);
+  const defenderType =        html.find('[name="defender_die_type"]').val()  ?? "none";
+  const defenderRoll = Number(html.find('[name="defender_die"]').val()       || 0);
 
-  const attack = payload.total + mod;
+  const attackPower = payload.total + mod;
 
-  let damage = 0;
-  let stagger = 0;
+  // ── Auto-detect clash result ───────────────────────────────────────────────
+  const clashResult = defenderRoll === 0         ? "unopposed"
+                    : attackPower > defenderRoll  ? "win"
+                    : attackPower === defenderRoll ? "tie"
+                    : "lose";
 
-  if (payload.isDefensive && (defenderType === "evade" || defenderType === "counter-evade") && (defenderRoll > attack)) {
-    const curr = targetActor.system.stagger.value;
-    const final = Math.min(targetActor.system.stagger.max, curr + defenderRoll - attack);
-    await targetActor.update({ "system.stagger.value": final });
-    return;
+  const dieBase        = normaliseType(payload.dieType);
+  const isOffensive    = isOffensiveType(dieBase);
+  const isBlock        = dieBase === "block";
+  const isEvade        = dieBase === "evade";
+  const defIsOffensive = isOffensiveType(defenderType);
+  const defIsBlock     = defenderType === "block";
+  const defIsEvade     = defenderType === "evade";
+
+  const attackerActor = resolveAttackerActor(payload);
+
+  let resultLabel = "";
+  // Stats for the TARGET (token being hit on a win)
+  let tDmg = 0, tStagger = 0, tStaggerGain = 0;
+  // Stats for the ATTACKER (the one who lost the clash)
+  let aDmg = 0, aStagger = 0;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  OFFENSIVE
+  // ══════════════════════════════════════════════════════════════════════════
+  if (isOffensive) {
+    switch (clashResult) {
+
+      case "win":
+      case "unopposed": {
+        [tDmg, tStagger] = applyAffinities(targetActor, dieBase, attackPower, attackPower);
+        if (clashResult === "win" && defIsBlock) {
+          tDmg     = Math.max(0, tDmg     - defenderRoll);
+          tStagger = Math.max(0, tStagger - defenderRoll);
+        }
+        if (clashResult === "win" && defIsEvade) {
+          tStagger = Math.max(0, tStagger - defenderRoll);
+        }
+        resultLabel = clashResult === "win"
+          ? `Clash Win — dealt ${tDmg} damage and ${tStagger} stagger to ${targetActor.name}`
+          : `Unopposed — dealt ${tDmg} damage and ${tStagger} stagger to ${targetActor.name}`;
+        break;
+      }
+
+      case "tie": { resultLabel = "Clash Tie — no effect."; break; }
+
+      // The attacker lost — opposing offensive die hits them back
+      case "lose": {
+        if (defIsOffensive && attackerActor) {
+          aDmg     = defenderRoll;
+          aStagger = defenderRoll;
+          resultLabel = `Clash Lose vs Offensive — ${attackerActor.name} takes ${aDmg} damage and ${aStagger} stagger`;
+        } else {
+          resultLabel = "Clash Lose — no effect.";
+        }
+        break;
+      }
+    }
   }
 
-  // With evasion taken care of, we can just straight up leave if the attack roll is less than or equal to the defender's roll (clash won)
-  if (defenderRoll >= attack) return;
+  // ══════════════════════════════════════════════════════════════════════════
+  //  BLOCK
+  // ══════════════════════════════════════════════════════════════════════════
+  else if (isBlock) {
+    switch (clashResult) {
 
-  if (payload.isOffensive) {
-    damage = attack;
-    stagger = attack;
-    if (payload.dieType === "slash" || payload.dieType === "counter-slash") {
-      damage = Math.max(0, damage + targetActor.system.modifiers.slash_damage_affinity);
-      stagger = Math.max(0, stagger + targetActor.system.modifiers.slash_stagger_affinity);
-    } else if (payload.dieType === "pierce" || payload.dieType === "counter-pierce") {
-      damage = Math.max(0, damage + targetActor.system.modifiers.pierce_damage_affinity);
-      stagger = Math.max(0, stagger + targetActor.system.modifiers.pierce_stagger_affinity);
-    } else {
-      damage = Math.max(0, damage + targetActor.system.modifiers.blunt_damage_affinity);
-      stagger = Math.max(0, stagger + targetActor.system.modifiers.blunt_stagger_affinity);
-    }
-    if (defenderType === "block" || defenderType === "counter-block") {
-      damage = Math.max(0, damage - defenderRoll);
-      stagger = Math.max(0, stagger - defenderRoll);
-    }
-    if (defenderType === "evade" || defenderType === "counter-evade") {
-      stagger = Math.max(0, stagger - defenderRoll);
+      case "win": {
+        tStagger = Math.max(0, attackPower - defenderRoll);
+        resultLabel = `Block Clash Win — dealt ${tStagger} stagger to ${targetActor.name}`;
+        break;
+      }
+
+      case "tie": { resultLabel = "Block Clash Tie — no effect."; break; }
+
+      // Block absorbed attackPower; remaining hits the block user
+      case "lose": {
+        if (defIsOffensive && attackerActor) {
+          aDmg     = Math.max(0, defenderRoll - attackPower);
+          aStagger = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Block Clash Lose — blocked ${attackPower}, ${attackerActor.name} takes net ${aDmg} damage and ${aStagger} stagger`;
+        } else {
+          resultLabel = "Block Clash Lose — no special effect.";
+        }
+        break;
+      }
+
+      case "unopposed": {
+        await game.sotc.updateActor(targetToken.actor, {});
+        await targetToken.actor.setFlag("sotc", "savedBlock", { power: attackPower, source: payload.itemName });
+        resultLabel = `Block Unopposed — die saved for later this scene (power: ${attackPower})`;
+        break;
+      }
     }
   }
 
-  if (payload.dieType === "block" || payload.dieType === "counter-block") {
-    stagger = attack - defenderRoll // For the most microscopic of optimizations, we already know that attack > defenderRoll, so no need to Math.max
+  // ══════════════════════════════════════════════════════════════════════════
+  //  EVADE
+  // ══════════════════════════════════════════════════════════════════════════
+  else if (isEvade) {
+    switch (clashResult) {
+
+      case "win": {
+        if (defIsOffensive) {
+          resultLabel = `Evade Clash Win vs Offensive — die recycled! No other Clash Win effects trigger.`;
+        } else {
+          tStaggerGain = Math.max(0, attackPower - defenderRoll);
+          resultLabel  = `Evade Clash Win vs Defensive — ${targetActor.name} regains ${tStaggerGain} stagger`;
+        }
+        break;
+      }
+
+      case "tie": { resultLabel = "Evade Clash Tie — no effect."; break; }
+
+      // Evade softens the stagger; remainder still lands on the evade user
+      case "lose": {
+        if (defIsOffensive && attackerActor) {
+          aStagger    = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Evade Clash Lose vs Offensive — evade absorbed ${attackPower} stagger, ${attackerActor.name} takes net ${aStagger} stagger`;
+        } else {
+          resultLabel = "Evade Clash Lose — no special effect.";
+        }
+        break;
+      }
+
+      case "unopposed": {
+        await targetToken.actor.setFlag("sotc", "savedEvade", { power: attackPower, source: payload.itemName });
+        resultLabel = `Evade Unopposed — die saved for later this scene (power: ${attackPower})`;
+        break;
+      }
+    }
   }
 
-  const curr_hp = targetActor.system.health.value;
-  const curr_stagger = targetActor.system.stagger.value;
-  const final_hp = curr_hp - damage
-  const final_stagger = curr_stagger - stagger
+  // ── Apply stats ───────────────────────────────────────────────────────────
+  await applyStats(targetActor,   { dmg: tDmg, stagger: tStagger, staggerGain: tStaggerGain });
+  if (attackerActor && (aDmg > 0 || aStagger > 0)) {
+    await applyStats(attackerActor, { dmg: aDmg, stagger: aStagger });
+  }
 
-  await targetActor.update({
-    "system.health.value": final_hp,
-    "system.stagger.value": final_stagger
-  });
+  // ── Chat result message ───────────────────────────────────────────────────
+  const clashLabel = { win: "Clash Win", tie: "Clash Tie", lose: "Clash Lose", unopposed: "Unopposed" }[clashResult];
+
+  const statLines = [];
+  if (tDmg        > 0) statLines.push(`<span style="color:#e05050;">${tDmg} HP → ${targetActor.name}</span>`);
+  if (tStagger    > 0) statLines.push(`<span style="color:#e0943a;">${tStagger} stagger → ${targetActor.name}</span>`);
+  if (tStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">+${tStaggerGain} stagger regained by ${targetActor.name}</span>`);
+  if (aDmg        > 0) statLines.push(`<span style="color:#e05050;">${aDmg} HP → ${attackerActor?.name}</span>`);
+  if (aStagger    > 0) statLines.push(`<span style="color:#e0943a;">${aStagger} stagger → ${attackerActor?.name}</span>`);
+
+  const msgContent = `
+    <div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif; line-height:1.6;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <strong style="color:#e8d9a0; font-size:14px;">${payload.itemName}</strong>
+        <span style="background:#2a2040; color:#c9a227; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:700;">${payload.dieType} → ${attackPower}</span>
+      </div>
+      <div style="color:#aaa; font-size:12px; margin-bottom:6px;">
+        Target: <strong style="color:#ddd;">${targetActor.name}</strong>
+        &nbsp;·&nbsp;
+        <strong style="color:#c9a227;">${clashLabel}</strong>
+      </div>
+      <div style="border-top:1px solid #3a3050; padding-top:6px; font-size:13px; color:#ccc;">
+        ${resultLabel}
+      </div>
+      ${statLines.length ? `<div style="margin-top:6px; display:flex; flex-direction:column; gap:2px; font-size:13px;">${statLines.join("")}</div>` : ""}
+    </div>
+  `;
+
+  await ChatMessage.create({ speaker: ChatMessage.getSpeaker(), content: msgContent });
 }
