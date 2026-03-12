@@ -18,7 +18,8 @@
     "verified": "11.315"
   },
   "esmodules": [
-    "module/sotc.js"
+    "module/sotc.js",
+    "module/custom/group-initiative-sound.js"
   ],
   "styles": [
     "styles/sotc.css"

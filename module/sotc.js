@@ -100,16 +100,41 @@ Hooks.once("init", async function() {
 
         updates.push({ _id: c.id, initiative: final_init });
 
-        // Post chat message
+        // Post chat message — sound is suppressed here; rollAll plays it once manually
         await roll.toMessage({
           speaker: ChatMessage.getSpeaker({ actor: c.actor }),
           flavor: `${c.name} rolls initiative (${roll.total - init_mod} → ${final_init})`,
+          sound: CONFIG.sounds.dice ?? null,
         }, messageOptions);
       }
 
       // Update initiatives
       await this.updateEmbeddedDocuments("Combatant", updates);
       if (updateTurn) this.update({ turn: this.turns.findIndex(t => t.initiative !== null) });
+      return this;
+    }
+
+    async rollAll(options = {}) {
+      // Roll all combatants ourselves in one batch — bypassing super.rollAll()
+      // so we can guarantee the sound plays exactly once at the end.
+      const ids = this.combatants
+        .filter(c => c.initiative === null)
+        .map(c => c.id);
+      if (!ids.length) return this;
+
+      // Silence sound for every individual roll
+      const originalSound = CONFIG.sounds.dice;
+      CONFIG.sounds.dice = null;
+      try {
+        await this.rollInitiative(ids, options);
+      } finally {
+        CONFIG.sounds.dice = originalSound;
+      }
+
+      // Play once
+      if (originalSound) {
+        foundry.audio.AudioHelper.play({ src: originalSound, volume: 0.8, autoplay: true, loop: false }, true);
+      }
       return this;
     }
   }
@@ -604,6 +629,10 @@ async function syncStatusItemEffect(item) {
 
 Hooks.once("ready", () => {
 
+  // ── Custom dice sound ───────────────────────────────────────────────────
+  CONFIG.sounds.dice = "systems/sotc/assets/audio/speed_dice.mp3";
+  console.log("sotc | Custom dice sound registered ✓");
+
   // ── Socket: allow players to update actors they do not own (e.g. applying
   // ── damage to an enemy token). The active GM executes the update.
   const SOCKET_NAME = "system.sotc";
@@ -675,18 +704,14 @@ Hooks.once("ready", () => {
 
   // What a nightmare this was. I couldn't figure it out so I requested ChatGPT's assistance. It's suboptimal as a dev, but
   // I didn't really have much input here EXCEPT for rigorously durability testing it. 
-  const originalDrawEffects = Token.prototype.drawEffects;
-  Token.prototype.drawEffects = async function (...args) {
-    await originalDrawEffects.apply(this, args);
-
-    // Delay for foundry to finish its work, as we aim to hook onto the status icon and place the count badge on top of it
-    await new Promise(resolve => requestAnimationFrame(resolve));
-
-    const actor = this.actor;
-    if (!actor || !this.effects) return;
+  // Shared helper — draws count badges onto a token's effect sprites.
+  // Extracted so it can be called from both drawEffects and canvasReady.
+  function drawCountBadges(token) {
+    const actor = token.actor;
+    if (!actor || !token.effects) return;
 
     // Here are the sprites that have been placed previously that we then go backwards from to add the badges to
-    const sprites = this.effects.children.filter(c => c.isSprite);
+    const sprites = token.effects.children.filter(c => c.isSprite);
     if (!sprites.length) return;
 
     // Now go through each of the sprites to add the count badges to them
@@ -728,14 +753,32 @@ Hooks.once("ready", () => {
 
       badge.name = "sotc-count";
       badge.anchor.set(1, 1);
-      badge.position.set(
-        bounds.width,
-        bounds.height
-      )
+      badge.position.set(bounds.width, bounds.height);
 
       sprite.addChild(badge);
     }
+  }
+
+  const originalDrawEffects = Token.prototype.drawEffects;
+  Token.prototype.drawEffects = async function (...args) {
+    await originalDrawEffects.apply(this, args);
+
+    // Capture reference — 'this' is not safe inside the rAF callback
+    const token = this;
+
+    // Yield one frame for Foundry to finish placing sprites, then badge synchronously
+    requestAnimationFrame(() => drawCountBadges(token));
   };
+});
+
+// On F5, drawEffects fires before textures and ActiveEffects are fully ready.
+// Wait 500ms after canvasReady to ensure everything is loaded, then redraw all badges.
+Hooks.on("canvasReady", () => {
+  setTimeout(() => {
+    for (const token of canvas.tokens.placeables) {
+      token.drawEffects();
+    }
+  }, 500);
 });
 
 Hooks.on("renderTokenHUD", (hud, html, data) => {
