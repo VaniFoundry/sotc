@@ -1,4 +1,4 @@
-import { EntitySheetHelper } from "./helper.js";
+import { EntitySheetHelper, enrichModWithStatusIcons } from "./helper.js";
 import {ATTRIBUTE_TYPES} from "./constants.js";
 
 /**
@@ -241,7 +241,7 @@ async _onRollSkillDie(event) {
     const colorClass = `die-color-${die.type}`;
     const modules = Object.values(die.mods ?? {});
     const moduleLine = modules.length
-      ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
+      ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px; margin-bottom:2px;">• ${enrichModWithStatusIcons(m, this.actor)}</div>`).join("")}</em></div>`
       : "";
     
 

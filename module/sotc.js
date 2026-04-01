@@ -14,6 +14,7 @@ import { SotCToken, SotCTokenDocument } from "./token.js";
 import { preloadHandlebarsTemplates } from "./templates.js";
 import { createSotCMacro } from "./macro.js";
 import { SOTCHotbar } from "./macro.js";
+import { enrichModWithStatusIcons, KeywordConfigApp } from "./helper.js";
 
 /* -------------------------------------------- */
 /*  Foundry VTT Initialization                  */
@@ -47,17 +48,37 @@ Hooks.once("init", async function() {
       const combatants = this.combatants.filter(c => ids.includes(c.id));
       const updates = [];
       
-      function computeSpeedModFromStatuses(actor) {
+      function computeSpeedModFromStatuses(actor, baseFormula) {
         if (!actor) return 0;
         let speed_mod = 0;
+
+        // Generic passive status modifiers targeting speed (skip Haste/Bind — handled separately below)
         const statuses = actor.items.filter(i => i.type === "status" && (i.system?.condition === "passive") && (Number(i.system?.count) > 0));
         for (const status of statuses) {
+          if (["haste", "bind"].includes(status.name.toLowerCase())) continue;
           const { effect, target, potency_flat = 0, potency = 0, count = 0 } = status.system;
           if (!target) continue;
           const sign = (effect === "Increase") ? 1 : -1;
           const bonus = (Number(potency_flat || 0) + Number(potency || 0) * Number(count || 0)) * sign;
           if (target === "speed") speed_mod += bonus;
         }
+
+        // Haste: +count flat to roll. Bind: -count flat, clamped so result >= 1
+        const hasteStatus = actor.items.find(i => i.type === "status" && i.name.toLowerCase() === "haste" && Number(i.system?.count) > 0);
+        const bindStatus  = actor.items.find(i => i.type === "status" && i.name.toLowerCase() === "bind"  && Number(i.system?.count) > 0);
+        const hasteCount  = hasteStatus ? Number(hasteStatus.system.count) : 0;
+        const bindCount   = bindStatus  ? Number(bindStatus.system.count)  : 0;
+
+        if (hasteCount || bindCount) {
+          const baseMin = (() => {
+            const m = (baseFormula ?? "1d6").match(/^(\d+)d(\d+)/i);
+            return m ? Number(m[1]) : 1;
+          })();
+          const net = hasteCount - bindCount;
+          const clamped = Math.max(1 - baseMin, net);
+          speed_mod += clamped;
+        }
+
         return Number(speed_mod) || 0;
       }
 
@@ -75,7 +96,7 @@ Hooks.once("init", async function() {
         const actor_formula = actor?.system?.speed_dice?.dice_size;
         let total_formula = `${actor_formula}`
 
-        const status_speed_mod = computeSpeedModFromStatuses(actor);
+        const status_speed_mod = computeSpeedModFromStatuses(actor, actor_formula);
         const stored_speed_mod = actor?.system?.modifiers.speed_mod ?? 0;
         const init_mod = status_speed_mod || stored_speed_mod || 0;
 
@@ -99,6 +120,14 @@ Hooks.once("init", async function() {
         }
 
         updates.push({ _id: c.id, initiative: final_init });
+
+        // Clear Haste and Bind on the base actor now that their bonus has been applied
+        const hasteToClear = actor.items.find(i => i.type === "status" && i.name.toLowerCase() === "haste" && Number(i.system?.count) > 0);
+        const bindToClear  = actor.items.find(i => i.type === "status" && i.name.toLowerCase() === "bind"  && Number(i.system?.count) > 0);
+        const clearUpdates = [];
+        if (hasteToClear) clearUpdates.push({ _id: hasteToClear.id, "system.count": 0 });
+        if (bindToClear)  clearUpdates.push({ _id: bindToClear.id,  "system.count": 0 });
+        if (clearUpdates.length) await actor.updateEmbeddedDocuments("Item", clearUpdates);
 
         // Post chat message — sound is suppressed here; rollAll plays it once manually
         await roll.toMessage({
@@ -185,6 +214,44 @@ Hooks.once("init", async function() {
     type: Boolean,
     default: true,
     config: true
+  });
+
+  // Chat keyword icon config — stored as JSON, managed via custom menu
+  game.settings.register("sotc", "chatKeywords", {
+    name: "Chat Keyword Icons",
+    hint: "JSON list of custom keyword→icon mappings for chat enrichment.",
+    scope: "world",
+    type: String,
+    default: "[]",
+    config: false   // hidden from default settings UI — managed via the menu below
+  });
+
+  game.settings.register("sotc", "restoreStaggerOnCombatEnd", {
+    name: "Restore Stagger on Combat End",
+    hint: "When combat ends, automatically restore all combatants' stagger to their maximum value.",
+    scope: "world",
+    type: Boolean,
+    default: true,
+    config: true
+  });
+
+  game.settings.register("sotc", "restoreLightOnCombatEnd", {
+    name: "Restore Light on Combat End",
+    hint: "When combat ends, automatically restore all combatants' light to their maximum value.",
+    scope: "world",
+    type: Boolean,
+    default: true,
+    config: true
+  });
+
+  // Settings menu button that opens the KeywordConfigApp
+  game.settings.registerMenu("sotc", "chatKeywordsMenu", {
+    name: "Chat Keyword Icons",
+    label: "Configure Keywords",
+    hint: "Add custom keywords (e.g. [On Use], Clash Win) with icons that appear inline in chat skill messages.",
+    icon: "fas fa-icons",
+    type: KeywordConfigApp,
+    restricted: true   // GM only
   });
 
   /**
@@ -511,20 +578,22 @@ Hooks.on("combatRound", async (combat, round) => {
     const statuses = actor.items.filter(i => i.type === "status" && (i.system.condition !== "stagger_like") && (i.system.count > 0));
     let delta_hp = 0;
     let delta_stagger = 0;
+
+    // ─────────────────────────────────────────────────────────────────────────
     for (const status of statuses) {
-      if ((status.system.condition === "active") && (status.system.scene_end_effect.activate_var === "activate")) {
-        const effect_type = status.system.effect;
-        const flat_change = Number(status.system.potency_flat ?? 0)
-        const potency = Number(status.system.potency ?? 1);
-        const count = Number(status.system.count ?? 0);
-        let delta = count * potency + flat_change;
-        const sign = effect_type === "Decrease" ? -1 : 1;
-        if (status.system.target === "hp" || status.system.target === "hp_stagger") {
-          delta_hp += delta * sign
-        }
-        if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
-          delta_stagger += delta * sign
-        }
+      // Haste and Bind are cleared in rollInitiative after being applied — skip them here
+      if (["haste", "bind"].includes(status.name.toLowerCase())) continue;
+      const effect_type = status.system.effect;
+      const flat_change = Number(status.system.potency_flat ?? 0)
+      const potency = Number(status.system.potency ?? 1);
+      const count = Number(status.system.count ?? 0);
+      let delta = count * potency + flat_change;
+      const sign = effect_type === "Decrease" ? -1 : 1;
+      if (status.system.target === "hp" || status.system.target === "hp_stagger") {
+        delta_hp += delta * sign
+      }
+      if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
+        delta_stagger += delta * sign
       }
       if (status.system.scene_end_effect.operator === "clear") {
         status_updates.push({
@@ -578,6 +647,61 @@ Hooks.on("combatRound", async (combat, round) => {
 });
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  COMBAT END — restore stagger and/or light based on system settings
+// ─────────────────────────────────────────────────────────────────────────────
+Hooks.on("deleteCombat", async (combat) => {
+  const restoreStagger = game.settings.get("sotc", "restoreStaggerOnCombatEnd");
+  const restoreLight   = game.settings.get("sotc", "restoreLightOnCombatEnd");
+  if (!restoreStagger && !restoreLight) return;
+
+  // Only the active GM runs this to avoid duplicate updates
+  if (!game.user.isGM || !game.users.activeGM?.isSelf) return;
+
+  const processed = new Set();
+  const restoredNames = [];
+
+  for (const c of combat.combatants) {
+    const actor = c.actor;
+    if (!actor) continue;
+    if (processed.has(actor.id)) continue;
+    processed.add(actor.id);
+
+    const updates = {};
+
+    if (restoreStagger) {
+      const max = actor.system.stagger?.max ?? 0;
+      if (max > 0) updates["system.stagger.value"] = max;
+    }
+
+    if (restoreLight) {
+      const max = actor.system.light?.max ?? 0;
+      if (max > 0) updates["system.light.value"] = max;
+    }
+
+    if (Object.keys(updates).length) {
+      await actor.update(updates);
+      restoredNames.push(actor.name);
+    }
+  }
+
+  if (restoredNames.length) {
+    const parts = [];
+    if (restoreStagger) parts.push("stagger");
+    if (restoreLight)   parts.push("light");
+    const what = parts.join(" and ");
+    ChatMessage.create({
+      content: `<div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif;">
+        <strong style="color:#c9a227;">Combat Ended</strong>
+        <div style="color:#aaa; font-size:12px; margin-top:4px;">
+          Restored ${what} for: <span style="color:#ddd;">${restoredNames.join(", ")}</span>
+        </div>
+      </div>`
+    });
+  }
+});
+
+
 // At long last, replacing the previous kind of trash impelementation, we are now hooking our status effects into the default system status effects.
 // And hurray! That means that YOU Mr/Mrs. Player can now mark people as prone and unconscious and asleep!
 const SOTC_BASE_EFFECTS = new Set([
@@ -618,6 +742,10 @@ async function syncStatusItemEffect(item) {
         }
       }
     }]);
+    // Redraw badges on all canvas tokens for this actor so counts appear immediately
+    canvas.tokens?.placeables
+      .filter(t => t.actor?.id === actor.id)
+      .forEach(t => requestAnimationFrame(() => t.drawEffects()));
     return;
   }
 
@@ -864,6 +992,19 @@ Hooks.on("deleteItem", async (item) => {
 });
 
 
+// When a token is freshly dropped onto the canvas, drawEffects fires before the actor's
+// ActiveEffects are fully synced, so badges don't appear. We wait a tick then force a redraw.
+Hooks.on("createToken", async (tokenDoc, options, userId) => {
+  // Only act for the client that placed the token
+  if (game.user.id !== userId) return;
+
+  // Give Foundry time to finish creating embedded ActiveEffects on the new actor
+  await new Promise(r => setTimeout(r, 300));
+
+  const token = tokenDoc.object;
+  if (token) token.drawEffects();
+});
+
 Hooks.on("createActor", async (actor, options, userId) => {
   // Load the compendium
   const pack = game.packs.get("sotc.default-statuses");
@@ -918,7 +1059,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       const icon = `systems/sotc/assets/dice types/${type}.png`;
       const moduleLine = modules.length
         ? `<div style="margin-top: 4px; font-size: 12px;"><em>${
-            modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")
+            modules.map(m => `<div style="margin-left: 5px; margin-bottom:2px;">• ${enrichModWithStatusIcons(m, game.actors.get(message.speaker?.actor))}</div>`).join("")
           }</em></div>`
         : "";
 
@@ -928,7 +1069,7 @@ Hooks.on("renderChatMessage", (message, html) => {
         itemName: item_name,
         isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(type),
         isDefensive: ["block","evade","counter-block","counter-evade"].includes(type),
-        actorId: ChatMessage.getSpeaker()?.actor ?? null
+        actorId: message.speaker?.actor ?? ChatMessage.getSpeaker()?.actor ?? null
       };
 
       const messageContent = `
@@ -983,6 +1124,123 @@ Hooks.on("renderChatMessage", (message, html) => {
   html.find(".resolve-die").on("click", ev => {
     const payload = JSON.parse(ev.currentTarget.dataset.payload);
     openDamageWizard(payload); // token is resolved inside from game.user.targets
+  });
+
+  // ── Undo button (emitted by resolveDamage into chat) ───────────────────
+  html.find(".sotc-undo-damage").on("click", async ev => {
+    ev.preventDefault();
+    const btn = ev.currentTarget;
+
+    // Guard: only allow undo once per button
+    if (btn.dataset.undone === "1") return;
+    btn.dataset.undone = "1";
+    btn.style.opacity      = "0.4";
+    btn.style.pointerEvents = "none";
+    btn.innerHTML = `<i class="fas fa-check"></i> Undone`;
+
+    let snapshot;
+    try {
+      snapshot = JSON.parse(btn.dataset.snapshot);
+    } catch(e) {
+      return ui.notifications.error("Undo failed: could not read snapshot.");
+    }
+
+    const restoreActor = async (snap) => {
+      if (!snap) return;
+      // Prefer resolving through the canvas token so synthetic/unlinked actors
+      // are updated on the right document, not the base world actor.
+      const actor = (snap.tokenId ? canvas.tokens?.get(snap.tokenId)?.actor : null)
+                 ?? game.actors.get(snap.actorId);
+      if (!actor) return;
+      await game.sotc.updateActor(actor, {
+        "system.health.value":  snap.hp,
+        "system.stagger.value": snap.stagger,
+      });
+    };
+
+    await restoreActor(snapshot.target);
+    await restoreActor(snapshot.attacker);
+
+    ui.notifications.info("Damage undone.");
+  });
+
+  // ── Apply status from chat mod line [+] button ──────────────────────────
+  html.find(".apply-status-from-chat").on("click", async ev => {
+    ev.preventDefault();
+    const statusName = ev.currentTarget.dataset.statusName;
+    const rawCount   = ev.currentTarget.dataset.statusCount;
+
+    // Resolve source status: check the speaking actor's items first, then world items
+    const speakerActorId = message.speaker?.actor;
+    const speakerActor = speakerActorId ? game.actors.get(speakerActorId) : null;
+
+    const sourceStatus =
+      speakerActor?.items.find(i => i.type === "status" && i.name.toLowerCase() === statusName) ??
+      game.items.find(i => i.type === "status" && i.name.toLowerCase() === statusName);
+
+    if (!sourceStatus) {
+      return ui.notifications.warn(`No status item found for "${statusName}". Make sure it exists as a world item or on the actor.`);
+    }
+
+    const targets = [...game.user.targets];
+    if (!targets.length) {
+      return ui.notifications.warn("No target selected. Right-click a token and target it first.");
+    }
+
+    // Determine how many stacks to apply
+    let stacksToAdd;
+    if (rawCount && Number(rawCount) > 0) {
+      // Number was detected right before the status name — use it directly, no dialog
+      stacksToAdd = Number(rawCount);
+    } else {
+      // No number found — ask the user
+      stacksToAdd = await new Promise(resolve => {
+        new Dialog({
+          title: `Apply ${sourceStatus.name}`,
+          content: `
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+              <label style="flex-shrink:0;">Stacks to apply:</label>
+              <input id="sotc-stack-input" type="number" min="1" value="1"
+                style="width:60px;" autofocus />
+            </div>`,
+          buttons: {
+            apply: {
+              icon: '<i class="fas fa-check"></i>',
+              label: "Apply",
+              callback: html => {
+                const val = Number(html.find("#sotc-stack-input").val());
+                resolve(val > 0 ? val : 1);
+              }
+            },
+            cancel: {
+              icon: '<i class="fas fa-times"></i>',
+              label: "Cancel",
+              callback: () => resolve(null)
+            }
+          },
+          default: "apply"
+        }).render(true);
+      });
+    }
+
+    if (!stacksToAdd) return; // user cancelled
+
+    for (const target of targets) {
+      const targetActor = target.actor;
+      if (!targetActor) continue;
+
+      const existing = targetActor.items.find(i => i.type === "status" && i.name === sourceStatus.name);
+      if (existing) {
+        const newCount = (Number(existing.system.count) || 0) + stacksToAdd;
+        await existing.update({ "system.count": newCount });
+        ui.notifications.info(`${sourceStatus.name} on ${targetActor.name} → ${newCount}.`);
+      } else {
+        const newItem = sourceStatus.toObject();
+        newItem.system.count = stacksToAdd;
+        await targetActor.createEmbeddedDocuments("Item", [newItem]);
+        ui.notifications.info(`Applied ${stacksToAdd}x ${sourceStatus.name} to ${targetActor.name}.`);
+      }
+    }
   });
 });
 
@@ -1095,7 +1353,6 @@ async function openDamageWizard(payload) {
   }
 
   const token   = targets[0];
-  const actor   = token.actor;
   const dieBase = normaliseType(payload.dieType);
 
   const badgeColor = isOffensiveType(dieBase) ? "#7a1a1a"
@@ -1197,7 +1454,7 @@ async function openDamageWizard(payload) {
       resolve: {
         icon: '<i class="fas fa-bolt"></i>',
         label: "Resolve",
-        callback: html => resolveDamage(payload, html, actor, token)
+        callback: html => resolveDamage(payload, html, token)
       },
       cancel: {
         icon: '<i class="fas fa-times"></i>',
@@ -1214,7 +1471,10 @@ async function openDamageWizard(payload) {
  * attackerActor = from payload.actorId (receives clash-lose damage)
  * Both are updated via game.sotc.updateActor to support non-owned targets.
  */
-async function resolveDamage(payload, html, targetActor, targetToken) {
+async function resolveDamage(payload, html, targetToken) {
+  // Re-fetch the token's actor at resolve-time so we always have live data,
+  // never a stale reference captured when the wizard was opened.
+  const targetActor = targetToken.actor;
   const mod          = Number(html.find('[name="mod"]').val()                || 0);
   const defenderType =        html.find('[name="defender_die_type"]').val()  ?? "none";
   const defenderRoll = Number(html.find('[name="defender_die"]').val()       || 0);
@@ -1241,7 +1501,7 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
   // Stats for the TARGET (token being hit on a win)
   let tDmg = 0, tStagger = 0, tStaggerGain = 0;
   // Stats for the ATTACKER (the one who lost the clash)
-  let aDmg = 0, aStagger = 0;
+  let aDmg = 0, aStagger = 0, aStaggerGain = 0;
 
   // ══════════════════════════════════════════════════════════════════════════
   //  OFFENSIVE
@@ -1288,8 +1548,17 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
     switch (clashResult) {
 
       case "win": {
-        tStagger = Math.max(0, attackPower - defenderRoll);
-        resultLabel = `Block Clash Win — dealt ${tStagger} stagger to ${targetActor.name}`;
+        if (defIsOffensive) {
+          // Block wins vs offensive: net damage+stagger
+          const net = Math.max(0, attackPower - defenderRoll);
+          tDmg     = net;
+          tStagger = net;
+          resultLabel = `Block Clash Win vs Offensive — dealt ${tDmg} damage and ${tStagger} stagger to ${targetActor.name}`;
+        } else {
+          // Block wins vs block/evade/none: stagger only
+          tStagger = Math.max(0, attackPower - defenderRoll);
+          resultLabel = `Block Clash Win — dealt ${tStagger} stagger to ${targetActor.name}`;
+        }
         break;
       }
 
@@ -1301,6 +1570,14 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
           aDmg     = Math.max(0, defenderRoll - attackPower);
           aStagger = Math.max(0, defenderRoll - attackPower);
           resultLabel = `Block Clash Lose — blocked ${attackPower}, ${attackerActor.name} takes net ${aDmg} damage and ${aStagger} stagger`;
+        } else if (defIsEvade && attackerActor) {
+          // Losing to evade: evader (target) regains net stagger
+          tStaggerGain = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Block Clash Lose vs Evade — ${targetActor.name} regains ${tStaggerGain} stagger`;
+        } else if (defIsBlock && attackerActor) {
+          // Losing to block: attacker takes net stagger only
+          aStagger = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Block Clash Lose vs Block — ${attackerActor.name} takes net ${aStagger} stagger`;
         } else {
           resultLabel = "Block Clash Lose — no special effect.";
         }
@@ -1326,8 +1603,9 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
         if (defIsOffensive) {
           resultLabel = `Evade Clash Win vs Offensive — die recycled! No other Clash Win effects trigger.`;
         } else {
-          tStaggerGain = Math.max(0, attackPower - defenderRoll);
-          resultLabel  = `Evade Clash Win vs Defensive — ${targetActor.name} regains ${tStaggerGain} stagger`;
+          // The evader is attackerActor (they rolled the evade die)
+          aStaggerGain = Math.max(0, attackPower - defenderRoll);
+          resultLabel  = `Evade Clash Win vs Defensive — ${attackerActor?.name ?? "Evader"} regains ${aStaggerGain} stagger`;
         }
         break;
       }
@@ -1339,6 +1617,10 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
         if (defIsOffensive && attackerActor) {
           aStagger    = Math.max(0, defenderRoll - attackPower);
           resultLabel = `Evade Clash Lose vs Offensive — evade absorbed ${attackPower} stagger, ${attackerActor.name} takes net ${aStagger} stagger`;
+        } else if ((defIsBlock || defIsEvade) && attackerActor) {
+          // Losing to a defensive die: evader takes net stagger
+          aStagger    = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Evade Clash Lose vs Defensive — ${attackerActor.name} takes net ${aStagger} stagger`;
         } else {
           resultLabel = "Evade Clash Lose — no special effect.";
         }
@@ -1353,10 +1635,33 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
     }
   }
 
+  // ── Snapshot pre-apply state for undo ────────────────────────────────────
+  // Snapshot uses targetActor (already fresh from targetToken.actor above) and
+  // re-fetches the attacker via canvas token for the same guarantee.
+  const attackerToken = attackerActor
+    ? canvas.tokens?.placeables?.find(t => t.actor?.id === attackerActor.id) ?? null
+    : null;
+  const freshAttacker = attackerToken ? attackerToken.actor : attackerActor;
+
+  const snapshot = {
+    target: {
+      actorId:  targetActor.id,
+      tokenId:  targetToken?.id ?? null,
+      hp:       targetActor.system.health.value  ?? 0,
+      stagger:  targetActor.system.stagger.value ?? 0,
+    },
+    attacker: freshAttacker ? {
+      actorId:  freshAttacker.id,
+      tokenId:  attackerToken?.id ?? null,
+      hp:       freshAttacker.system.health.value  ?? 0,
+      stagger:  freshAttacker.system.stagger.value ?? 0,
+    } : null,
+  };
+
   // ── Apply stats ───────────────────────────────────────────────────────────
   await applyStats(targetActor,   { dmg: tDmg, stagger: tStagger, staggerGain: tStaggerGain });
-  if (attackerActor && (aDmg > 0 || aStagger > 0)) {
-    await applyStats(attackerActor, { dmg: aDmg, stagger: aStagger });
+  if (attackerActor && (aDmg > 0 || aStagger > 0 || aStaggerGain > 0)) {
+    await applyStats(attackerActor, { dmg: aDmg, stagger: aStagger, staggerGain: aStaggerGain });
   }
 
   // ── Chat result message ───────────────────────────────────────────────────
@@ -1368,6 +1673,11 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
   if (tStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">+${tStaggerGain} stagger regained by ${targetActor.name}</span>`);
   if (aDmg        > 0) statLines.push(`<span style="color:#e05050;">${aDmg} HP → ${attackerActor?.name}</span>`);
   if (aStagger    > 0) statLines.push(`<span style="color:#e0943a;">${aStagger} stagger → ${attackerActor?.name}</span>`);
+  if (aStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">+${aStaggerGain} stagger regained by ${attackerActor?.name}</span>`);
+
+  // Encode snapshot into the undo button so any client can trigger it
+  const snapshotJson = JSON.stringify(snapshot).replace(/'/g, "&#39;");
+  const hasEffect = tDmg || tStagger || tStaggerGain || aDmg || aStagger || aStaggerGain;
 
   const msgContent = `
     <div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif; line-height:1.6;">
@@ -1384,6 +1694,14 @@ async function resolveDamage(payload, html, targetActor, targetToken) {
         ${resultLabel}
       </div>
       ${statLines.length ? `<div style="margin-top:6px; display:flex; flex-direction:column; gap:2px; font-size:13px;">${statLines.join("")}</div>` : ""}
+      ${hasEffect ? `
+      <div style="margin-top:8px; border-top:1px solid #3a3050; padding-top:6px;">
+        <a class="sotc-undo-damage"
+           data-snapshot='${snapshotJson}'
+           style="display:inline-flex; align-items:center; gap:5px; background:#2a1a1a; border:1px solid #6b2a2a; border-radius:4px; padding:3px 10px; font-size:11px; font-weight:700; color:#e07070; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer; text-decoration:none;">
+          <i class="fas fa-rotate-left"></i> Undo
+        </a>
+      </div>` : ""}
     </div>
   `;
 

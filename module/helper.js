@@ -629,3 +629,214 @@ export class EntitySheetHelper {
     return clean;
   }
 }
+
+/**
+ * Enriches a mod/module text string by replacing known status names
+ * with inline icon images sourced from matching status items in the world.
+ * Also appends a [+] apply button for each matched status.
+ *
+ * @param {string} text - The raw mod text, e.g. "On Hit: Inflict 2 Sinking"
+ * @param {Actor|null} actor - The rolling actor, used to prefer their owned status icons
+ * @returns {string} HTML string with inline icons injected
+ */
+export function enrichModWithStatusIcons(text, actor) {
+  const statusMap = new Map();   // name → { img, applyable }
+
+  // World items first (lower priority) — these get a [+] apply button
+  game.items.filter(i => i.type === "status").forEach(i => {
+    if (i.name) statusMap.set(i.name.toLowerCase(), { img: i.img, applyable: true });
+  });
+
+  // Actor's own items override (higher priority — may have custom art)
+  if (actor) {
+    actor.items.filter(i => i.type === "status").forEach(i => {
+      if (i.name) statusMap.set(i.name.toLowerCase(), { img: i.img, applyable: true });
+    });
+  }
+
+  // Custom keyword icons from settings — display only, no [+] button
+  try {
+    const customKeywords = JSON.parse(game.settings.get("sotc", "chatKeywords") || "[]");
+    for (const kw of customKeywords) {
+      if (kw.name && !statusMap.has(kw.name.toLowerCase())) {
+        statusMap.set(kw.name.toLowerCase(), { img: kw.img, applyable: false });
+      }
+    }
+  } catch { /* settings not ready yet */ }
+
+  let enriched = text;
+  for (const [name, { img, applyable }] of statusMap) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Capture an optional leading number (e.g. "3 Burn" → count=3)
+    const regex = new RegExp(`(?<![\\w])(\\d+\\s+)?(${escaped})(?![\\w])`, "gi");
+    enriched = enriched.replace(regex, (match, numPart, namePart) => {
+      const count = numPart ? numPart.trim() : "";
+      const iconHtml = img
+        ? `<img src="${img}" alt="${namePart}" title="${namePart}" style="height:1em;width:1em;vertical-align:text-bottom;border:none;display:inline;">`
+        : "";
+      const applyBtn = applyable
+        ? `<a class="apply-status-from-chat" data-status-name="${name}" data-status-count="${count}" title="Apply ${match.trim()} to target" style="margin-left:3px;cursor:pointer;color:#c9a227;font-size:11px;font-weight:bold;">[+]</a>`
+        : "";
+      // Render the number part (if any) before the icon+name
+      const numHtml = numPart ? `${numPart}` : "";
+      return `${numHtml}${iconHtml}<strong>${namePart}</strong>${applyBtn}`;
+    });
+  }
+
+  return enriched;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   KEYWORD CONFIG — custom icon keywords for chat enrichment
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A FormApplication that lets the GM manage a list of keyword → icon mappings.
+ * These appear inline in chat mod lines (no [+] apply button — display only).
+ */
+export class KeywordConfigApp extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "sotc-keyword-config",
+      title: "SotC — Chat Keyword Icons",
+      template: false,          // We'll render our own HTML
+      width: 560,
+      height: "auto",
+      resizable: true,
+      closeOnSubmit: false,
+      submitOnChange: false,
+    });
+  }
+
+  /** Load saved keywords from settings */
+  _getKeywords() {
+    try {
+      return JSON.parse(game.settings.get("sotc", "chatKeywords") || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  /** Build and inject HTML manually since we have no .hbs template file */
+  async _renderInner(data) {
+    const keywords = this._getKeywords();
+
+    const rows = keywords.map((kw, i) => `
+      <li class="kw-row flexrow" data-index="${i}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <input class="kw-name" type="text" placeholder="Keyword (e.g. Sinking)" value="${kw.name ?? ""}"
+          style="flex:1;"/>
+        <input class="kw-img" type="text" placeholder="Image path (systems/sotc/assets/...)" value="${kw.img ?? ""}"
+          style="flex:2;"/>
+        ${kw.img ? `<img src="${kw.img}" style="height:24px;width:24px;border:none;flex-shrink:0;" onerror="this.style.display='none'">` : `<span style="width:24px;"></span>`}
+        <a class="kw-browse" data-index="${i}" title="Browse for image" style="cursor:pointer;flex-shrink:0;">
+          <i class="fas fa-folder-open"></i>
+        </a>
+        <a class="kw-delete" data-index="${i}" title="Remove" style="cursor:pointer;color:#c00;flex-shrink:0;">
+          <i class="fas fa-trash"></i>
+        </a>
+      </li>
+    `).join("");
+
+    const html = `
+      <div style="padding:8px;">
+        <p style="font-size:12px;margin-bottom:8px;color:#555;">
+          These keywords will have their icon shown inline in chat skill mod lines.
+          The match is case-insensitive and whole-word. No apply button — display only.
+        </p>
+        <ul id="kw-list" style="list-style:none;padding:0;margin:0;">
+          ${rows}
+        </ul>
+        <div style="margin-top:8px;">
+          <button type="button" id="kw-add" style="width:100%;">
+            <i class="fas fa-plus"></i> Add Keyword
+          </button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" id="kw-save" style="min-width:80px;">
+            <i class="fas fa-save"></i> Save
+          </button>
+          <button type="button" id="kw-close" style="min-width:80px;">
+            Cancel
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Return a jQuery element wrapping our HTML
+    return $(html);
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+
+    // Add new row
+    html.find("#kw-add").on("click", () => {
+      const keywords = this._getKeywords();
+      keywords.push({ name: "", img: "" });
+      game.settings.set("sotc", "chatKeywords", JSON.stringify(keywords)).then(() => this.render());
+    });
+
+    // Delete a row
+    html.find(".kw-delete").on("click", ev => {
+      const i = Number(ev.currentTarget.dataset.index);
+      const keywords = this._getKeywords();
+      keywords.splice(i, 1);
+      game.settings.set("sotc", "chatKeywords", JSON.stringify(keywords)).then(() => this.render());
+    });
+
+    // Browse for image using Foundry's FilePicker
+    html.find(".kw-browse").on("click", ev => {
+      const i = Number(ev.currentTarget.dataset.index);
+      const picker = new FilePicker({
+        type: "image",
+        current: html.find(`.kw-row[data-index="${i}"] .kw-img`).val() || "systems/sotc/assets/",
+        callback: path => {
+          html.find(`.kw-row[data-index="${i}"] .kw-img`).val(path);
+          // Update preview
+          const row = html.find(`.kw-row[data-index="${i}"]`);
+          let preview = row.find("img");
+          if (!preview.length) {
+            preview = $(`<img style="height:24px;width:24px;border:none;flex-shrink:0;">`);
+            row.find(".kw-browse").before(preview);
+          }
+          preview.attr("src", path).show();
+        }
+      });
+      picker.browse();
+    });
+
+    // Live preview when img path is typed
+    html.find(".kw-img").on("input", ev => {
+      const row = $(ev.currentTarget).closest(".kw-row");
+      const path = ev.currentTarget.value;
+      let preview = row.find("img");
+      if (!preview.length) {
+        preview = $(`<img style="height:24px;width:24px;border:none;flex-shrink:0;">`);
+        row.find(".kw-browse").before(preview);
+      }
+      preview.attr("src", path).show();
+    });
+
+    // Save
+    html.find("#kw-save").on("click", () => this._saveAndClose(html));
+
+    // Cancel
+    html.find("#kw-close").on("click", () => this.close());
+  }
+
+  async _saveAndClose(html) {
+    const rows = html.find(".kw-row");
+    const keywords = [];
+    rows.each((_, row) => {
+      const name = $(row).find(".kw-name").val().trim();
+      const img  = $(row).find(".kw-img").val().trim();
+      if (name) keywords.push({ name, img });
+    });
+    await game.settings.set("sotc", "chatKeywords", JSON.stringify(keywords));
+    ui.notifications.info("SotC: Keyword icons saved.");
+    this.close();
+  }
+
+  // Required stub
+  async _updateObject() {}
+}

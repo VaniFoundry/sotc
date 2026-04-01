@@ -1,4 +1,4 @@
-import { EntitySheetHelper } from "./helper.js";
+import { EntitySheetHelper, enrichModWithStatusIcons } from "./helper.js";
 import {ATTRIBUTE_TYPES} from "./constants.js";
 
 /**
@@ -238,7 +238,14 @@ export class SotCActorSheet extends ActorSheet {
             const light_costLine = `<p><strong>Light Cost:</strong> ${light_cost}</p>`;
             const weight = item.system.weight;
             const weightLine = weight > 1 ? `<p><strong>Attack Weight:</strong> ${weight}</p>` : "";
-            const skillModulesLine = skillModules ? `<div class="skill-modules" style="white-space: pre-wrap;">${skillModules}</div>` : "";
+            const skillModulesArray = Array.isArray(skillModules)
+              ? skillModules
+              : (typeof skillModules === "string" ? skillModules.split("\n").map(s => s.trim()).filter(Boolean) : []);
+            const skillModulesMain  = skillModulesArray.filter(m => !/^\[after use\]/i.test(m.trim()));
+            const skillModulesAfter = skillModulesArray.filter(m =>  /^\[after use\]/i.test(m.trim()));
+            const renderModLines = arr => arr.map(m => `<div style="margin-bottom:2px;">${enrichModWithStatusIcons(m, this.actor)}</div>`).join("");
+            const skillModulesLine      = skillModulesMain.length  ? `<div class="skill-modules">${renderModLines(skillModulesMain)}</div>`  : "";
+            const skillModulesAfterLine = skillModulesAfter.length ? `<div class="skill-modules skill-modules-after">${renderModLines(skillModulesAfter)}</div>` : "";
 
             // Non-Optional. This is why you're printing the skill, obviously it's not optional? Are you stupid?
             const diceSummaries = dice.map(die => {
@@ -247,7 +254,7 @@ export class SotCActorSheet extends ActorSheet {
               const formula = die.formula;
               const modules = Object.values(die.mods ?? {});
               const moduleLine = modules.length
-                ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
+                ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px; ">• ${enrichModWithStatusIcons(m, this.actor)}</div>`).join("")}</em></div>`
                 : "";
               return `
                 <div style="margin-bottom: 5px;">
@@ -270,6 +277,7 @@ export class SotCActorSheet extends ActorSheet {
                 ${skillModulesLine}
                 <p><strong>Dice:</strong></p>
                 ${diceSummaries}
+                ${skillModulesAfterLine}
               </div>
             `;
 
@@ -389,7 +397,14 @@ export class SotCActorSheet extends ActorSheet {
             const weight = item.system.weight;
 
             const weightLine = weight > 1 ? `<p><strong>Attack Weight:</strong> ${weight}</p>` : "";
-            const skillModulesLine = skillModules ? `<div class="skill-modules" style="white-space: pre-wrap;">${skillModules}</div>` : "";
+            const skillModulesArray = Array.isArray(skillModules)
+              ? skillModules
+              : (typeof skillModules === "string" ? skillModules.split("\n").map(s => s.trim()).filter(Boolean) : []);
+            const skillModulesMain  = skillModulesArray.filter(m => !/^\[after use\]/i.test(m.trim()));
+            const skillModulesAfter = skillModulesArray.filter(m =>  /^\[after use\]/i.test(m.trim()));
+            const renderModLines = arr => arr.map(m => `<div style="margin-bottom:2px;">${enrichModWithStatusIcons(m, this.actor)}</div>`).join("");
+            const skillModulesLine      = skillModulesMain.length  ? `<div class="skill-modules">${renderModLines(skillModulesMain)}</div>`  : "";
+            const skillModulesAfterLine = skillModulesAfter.length ? `<div class="skill-modules skill-modules-after">${renderModLines(skillModulesAfter)}</div>` : "";
 
             // Dice display
             const diceSummaries = results.map(({ die, roll, formulaForDisplay, mod, status_mod }) => {
@@ -397,7 +412,7 @@ export class SotCActorSheet extends ActorSheet {
               const colorClass = `die-color-${die.type}`;
               const modules = Object.values(die.mods ?? {});
               const moduleLine = modules.length
-                ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
+                ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px; ">• ${enrichModWithStatusIcons(m, this.actor)}</div>`).join("")}</em></div>`
                 : "";
               const payload = {
                 dieType: die.type,
@@ -448,6 +463,7 @@ export class SotCActorSheet extends ActorSheet {
                 ${skillModulesLine}
                 <p><strong>Dice Rolled:</strong></p>
                 ${diceSummaries}
+                ${skillModulesAfterLine}
                 <hr>
                 <a class="toggle-roll-details" style="cursor: pointer; font-size: 12px; color: #888;">
                   ⯈ Show Roll Details
@@ -647,7 +663,7 @@ export class SotCActorSheet extends ActorSheet {
             // Module display
             const modules = Object.values(die.mods ?? {});
             const moduleLine = modules.length
-              ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px;">• ${m}</div>`).join("")}</em></div>`
+              ? `<div style="margin-top: 4px; font-size: 12px;"><em>${modules.map(m => `<div style="margin-left: 5px; ">• ${enrichModWithStatusIcons(m, this.actor)}</div>`).join("")}</em></div>`
               : "";
 
             const payload = {
