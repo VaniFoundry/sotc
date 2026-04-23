@@ -244,6 +244,16 @@ Hooks.once("init", async function() {
     config: true
   });
 
+  game.settings.register("sotc", "sinkingMinResourceLimit", {
+    name: "SETTINGS.SotCSinkingMinResourceLimitN",
+    hint: "SETTINGS.SotCSinkingMinResourceLimitL",
+    scope: "world",
+    type: Number,
+    default: 1,
+    range: {min: 0, max: 20, step: 1},
+    config: true
+  });
+
   // Settings menu button that opens the KeywordConfigApp
   game.settings.registerMenu("sotc", "chatKeywordsMenu", {
     name: "Chat Keyword Icons",
@@ -583,17 +593,54 @@ Hooks.on("combatRound", async (combat, round) => {
     for (const status of statuses) {
       // Haste and Bind are cleared in rollInitiative after being applied — skip them here
       if (["haste", "bind"].includes(status.name.toLowerCase())) continue;
-      const effect_type = status.system.effect;
-      const flat_change = Number(status.system.potency_flat ?? 0)
-      const potency = Number(status.system.potency ?? 1);
-      const count = Number(status.system.count ?? 0);
-      let delta = count * potency + flat_change;
-      const sign = effect_type === "Decrease" ? -1 : 1;
-      if (status.system.target === "hp" || status.system.target === "hp_stagger") {
-        delta_hp += delta * sign
-      }
-      if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
-        delta_stagger += delta * sign
+
+      // Skip delta if scene_end maintain (no turn-end effect, e.g. Tremor)
+      const endOp = status.system.scene_end_effect.operator;
+      // Sinking too (lowercase for "Sinking")
+      if (status.name.toLowerCase() === "sinking" || status.name.toLowerCase() === "sinking deluge") {
+        const inflict = Number(status.system.count ?? 0);
+        if (inflict > 0) {
+          const curr = Number(actor.system.stagger.value ?? 0);
+          const maxs = Number(actor.system.stagger.max ?? curr);
+          // Use scene_end_effect.min_resource_limit as the floor (1 for Sinking, 0 for Sinking Deluge)
+          const sinkingFloor = Number(status.system.scene_end_effect?.min_resource_limit ?? 0);
+          actor_stag_updates["system.stagger.value"] = Math.max(sinkingFloor, Math.min(maxs, curr - inflict));
+          const newc = Math.floor(inflict / 2);
+          status_updates.push({
+            _id: status.id,
+            "system.count": newc
+          });
+          if (actor.system.initiative_type === "player") {
+            const cure = Number(actor.system.emotion ?? 0);
+            actor_updates["system.emotion"] = Math.max(0, cure - Math.floor(inflict / 2));
+          }
+        }
+      } else if (endOp !== "maintain") {
+        const effect_type = status.system.effect;
+        const flat_change = Number(status.system.potency_flat ?? 0)
+        const potency = Number(status.system.potency ?? 1);
+        const count = Number(status.system.count ?? 0);
+        let delta = count * potency + flat_change;
+        const sign = effect_type === "Decrease" ? -1 : 1;
+        const minResourceLimit = Number(status.system.scene_end_effect.min_resource_limit ?? 0);
+        const applyMinLimit = (target, value) => {
+          if (target === "hp" || target === "hp_stagger") {
+            actor_updates["system.health.value"] = Math.max(minResourceLimit, value);
+          }
+          if (target === "stagger" || target === "hp_stagger") {
+            actor_updates["system.stagger.value"] = Math.max(minResourceLimit, value);
+          }
+        };
+        if (status.system.target === "hp" || status.system.target === "hp_stagger") {
+          const currHp = actor.system.health.value ?? 0;
+          const newHp = currHp + delta * sign;
+          applyMinLimit(status.system.target, newHp);
+        }
+        if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
+          const currStagger = actor.system.stagger.value ?? 0;
+          const newStagger = currStagger + delta * sign;
+          applyMinLimit(status.system.target, newStagger);
+        }
       }
       if (status.system.scene_end_effect.operator === "clear") {
         status_updates.push({
@@ -987,7 +1034,7 @@ Hooks.on("updateItem", async (item, changes) => {
 Hooks.on("deleteItem", async (item) => {
   if (item.type !== "status") return;
 
-  const effect = getStatusEffectForItem(item);
+  const effect = getActorStatusEffect(item.actor, item.id);
   if (effect) await effect.delete();
 });
 
@@ -1018,6 +1065,36 @@ Hooks.on("createActor", async (actor, options, userId) => {
 
   // Make sure they are Items
   const items = statuses.map(s => s.toObject());
+
+  // Apply per-status defaults that ideally live in the compendium item data.
+  // For Sinking specifically:
+  //   - scene_end_effect.min_resource_limit = 1  (round-end halving never reduces to 0)
+  //   - post_actives: "Trigger then Divide By" entries get min_resource_limit = 1
+  //     (manual divide trigger also shouldn't reduce to 0)
+  //   - post_actives: "Trigger (Sinking) Deluge" entry stays at 0 so it can fully
+  //     drain stagger as part of its overflow-damage calculation.
+  for (const item of items) {
+    const isSinking = (item.name ?? "").toLowerCase() === "sinking";
+    if (!isSinking) continue;
+    if (!item.system) continue;
+
+    // scene_end_effect floor
+    const sce = item.system.scene_end_effect;
+    if (sce && (sce.min_resource_limit == null)) {
+      item.system.scene_end_effect = { ...sce, min_resource_limit: 1 };
+    }
+
+    // post_actives: set min_resource_limit = 1 for all non-deluge triggers
+    const raw_pa = item.system.post_actives;
+    if (raw_pa) {
+      const pa_arr = Array.isArray(raw_pa) ? raw_pa : Object.values(raw_pa);
+      item.system.post_actives = pa_arr.map(pa => {
+        if (pa.operator === "sinking_deluge") return pa; // Deluge stays at 0
+        if (pa.min_resource_limit == null) return { ...pa, min_resource_limit: 1 };
+        return pa;
+      });
+    }
+  }
 
   // Create them on the actor (skip if actor already has items with the same name)
   await actor.createEmbeddedDocuments("Item", items.filter(item =>

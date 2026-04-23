@@ -818,14 +818,19 @@ export class SotCActorSheet extends ActorSheet {
         console.log("Sinking Deluge is supposed to SUBTRACT stagger! Find actor-sheet.js lines ~780 if you wanna mess around.")
       }
       const curr = this.actor.system.stagger.value;
-      delta *= 3
-      let hp_delta = 0
-      hp_delta = Math.floor(Math.min(0, curr + delta * sign) / 2)
-      if (hp_delta) {
-        updates["system.stagger.value"] = 0
-        updates["system.health.value"] = (this.actor.system.health.value ?? 0) + hp_delta
+      delta *= 3;
+      // How much stagger would remain after applying the full delta (sign is -1, so curr - delta)
+      const staggerResult = curr + delta * sign;
+      if (staggerResult < 0) {
+        // Stagger hits 0; for every 3 overflow beyond that, deal 2 HP damage
+        const overflow = Math.abs(staggerResult);
+        const hp_damage = Math.floor(overflow / 3) * 2;
+        updates["system.stagger.value"] = 0;
+        if (hp_damage > 0) {
+          updates["system.health.value"] = (this.actor.system.health.value ?? 0) - hp_damage;
+        }
       } else {
-        updates["system.stagger.value"] = (this.actor.system.stagger.value ?? 0) + (delta * sign);
+        updates["system.stagger.value"] = staggerResult;
       }
     } else {
       if (item.system.target === "hp" || item.system.target === "hp_stagger") {
@@ -835,6 +840,19 @@ export class SotCActorSheet extends ActorSheet {
         updates["system.stagger.value"] = (this.actor.system.stagger.value ?? 0) + (delta * sign);
       }
     }
+    // Apply clamp_min if set (always for stagger targets)
+    const minResourceLimit = Number(post_active.min_resource_limit ?? 0);
+    if (item.system.target === "hp" || item.system.target === "hp_stagger") {
+      const newHp = updates["system.health.value"] ?? (this.actor.system.health.value ?? 0);
+      updates["system.health.value"] = Math.max(minResourceLimit, newHp);
+    }
+    if (item.system.target === "stagger" || item.system.target === "hp_stagger") {
+      let newStagger = updates["system.stagger.value"] ?? (this.actor.system.stagger.value ?? 0);
+      // Clamp to min_resource_limit stored on this trigger entry (0 = no floor, e.g. Deluge can reduce to 0)
+      newStagger = Math.max(minResourceLimit, newStagger);
+      updates["system.stagger.value"] = newStagger;
+    }
+
     if (Object.keys(updates).length > 0) {
       this.actor.update(updates);
     }

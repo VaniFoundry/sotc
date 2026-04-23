@@ -33,6 +33,25 @@ export class SotCStatusSheet extends ItemSheet {
       secrets: this.document.isOwner,
       async: true
     });
+
+    // Ensure min_resource_limit is always present on every trigger entry so the
+    // template can render an input for it without undefined-related issues.
+    // The default is 0 for all statuses; Sinking gets 1 applied at actor-creation
+    // time (see the createActor hook in sotc.js).
+    const normaliseMinLimit = (raw) => {
+      const arr = Array.isArray(raw) ? raw : Object.values(raw ?? {});
+      return arr.map(entry => ({
+        min_resource_limit: 0,   // safe fallback — overridden by stored value below
+        ...entry
+      }));
+    };
+
+    context.post_actives_normalised  = normaliseMinLimit(context.systemData.post_actives);
+    context.scene_end_effect_normalised = {
+      ...context.systemData.scene_end_effect,
+      min_resource_limit: context.systemData.scene_end_effect?.min_resource_limit ?? 0
+    };
+
     return context;
   }
 
@@ -150,7 +169,9 @@ export class SotCStatusSheet extends ItemSheet {
     // Add new post active control button option thing <- words uttered by the deranged
     if ( a.classList.contains("add-option") ) {
       await this._onSubmit(event);
-      const updated_post_array = [...post_actives_array, { operator: "maintain", variable: 0 }];
+      // Default min_resource_limit is 0 for new triggers on all statuses.
+      // Sinking's value of 1 is set at actor-creation time via the createActor hook.
+      const updated_post_array = [...post_actives_array, { operator: "maintain", variable: 0, min_resource_limit: 0 }];
       return this.item.update({ "system.post_actives": updated_post_array });
     }
 
@@ -165,20 +186,20 @@ export class SotCStatusSheet extends ItemSheet {
     }
   }
 
-  async _onStaggerControl(event) {
+    async _onStaggerControl(event) {
     event.preventDefault();
     const a = event.currentTarget;
     const raw_stagger_effects = this.item.system.stagger_effects;
     const stagger_effects_array = Array.isArray(raw_stagger_effects) ? raw_stagger_effects : Object.values(raw_stagger_effects);
 
-    // Add new post active control button option
+    // Add new stagger effect trigger — min_resource_limit defaults to 0.
     if ( a.classList.contains("add-option") ) {
       await this._onSubmit(event);
-      const updated_post_array = [...stagger_effects_array, { operator: "maintain", variable: 0 }];
+      const updated_post_array = [...stagger_effects_array, { operator: "maintain", variable: 0, min_resource_limit: 0 }];
       return this.item.update({ "system.stagger_effects": updated_post_array });
     }
 
-    // Remove a post active control button option
+    // Remove a stagger effect trigger
     if ( a.classList.contains("remove-option") ) {
       await this._onSubmit(event);
       const li = a.closest(".stagger_effect_contents");

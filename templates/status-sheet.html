@@ -87,9 +87,12 @@
                                             <option value="multiply" {{#if (eq post_active.operator "multiply")}}selected{{/if}}>Trigger then Multiply By</option>
                                             <option value="sinking_deluge" {{#if (eq post_active.operator "sinking_deluge")}}selected{{/if}}>Trigger (Sinking) Deluge.</option> <!-- Add trigger functionality!!!! -->
                                         </select>
-                                        {{#if (and (ne post_active.operator "maintain") (ne post_active.operator "sinking_deluge"))}}
+{{#if (and (ne post_active.operator "maintain") (ne post_active.operator "sinking_deluge"))}}
                                             <input type="number" name="system.post_actives.{{i}}.variable" value="{{post_active.variable}}" style="width: 32px; text-align: center;"/>
                                         {{/if}}
+                                        <span> Min Resource Limit &ge; </span>
+                                        <input type="number" name="system.post_actives.{{i}}.min_resource_limit" value="{{post_active.min_resource_limit}}" style="width: 40px; text-align: center;" data-tooltip="Minimum value for affected resources (HP/Stagger) after trigger."/>
+
                                     </div>
                                 {{/each}}
                                 <div style="margin-top: 4px; ">
@@ -97,7 +100,7 @@
                                 </div>
                             </div>
                         {{/if}}
-                        {{#if (eq systemData.condition "stagger_like")}}
+{{#if (or (eq systemData.condition "stagger_like") (eq systemData.condition "passive"))}}
                             <div class="stagger_effects" style="margin-bottom:4px"> 
                                 <div style="margin-top: 8px; margin-bottom: 4px;">Apply the following effects:</div>
                                 <input type="checkbox" name="system.stagger_effects.null_light_regen" {{checked systemData.stagger_effects.null_light_regen}} id="null_light_regen">
@@ -108,7 +111,12 @@
                                 <label for="null_affinities">Nullify any base damage and stagger resistances.</label><br>
                                 <input type="checkbox" name="system.stagger_effects.reset_stagger" {{checked systemData.stagger_effects.reset_stagger}} id="reset_stagger">
                                 <label for="reset_stagger">Recover all stagger on clearing status.</label><br>
+                                <input type="checkbox" name="system.stagger_effects.stagger_min.enabled" {{checked systemData.stagger_effects.stagger_min.enabled}} id="stagger_min">
+                                <label for="stagger_min">Clamp stagger >= </label>
+                                <input type="number" name="system.stagger_effects.stagger_min.value" value="{{systemData.stagger_effects.stagger_min.value}}" min="0" style="width:50px; text-align:center;"/>
+                                <br>
                             </div>
+
                             <div class="stagger_effects">
                                 Status expires
                                 <input type="number" name="system.stagger_duration" value="{{systemData.stagger_duration}}" style="width: 32px; text-align: center;"/>
@@ -124,7 +132,7 @@
                                             <option value="do_not_activate" {{#if (eq systemData.scene_end_effect.activate_var "do_not_activate")}}selected{{/if}}>Do not Trigger</option>
                                         </select>
                                         then
-                                        <select name="system.scene_end_effect.operator">
+                <select name="system.scene_end_effect.operator">
                                             <option value="maintain" {{#if (eq systemData.scene_end_effect.operator "maintain")}}selected{{/if}}>Do Nothing</option>
                                             <option value="subtract" {{#if (eq systemData.scene_end_effect.operator "subtract")}}selected{{/if}}>Decrease By</option>
                                             <option value="divide" {{#if (eq systemData.scene_end_effect.operator "divide")}}selected{{/if}}>Divide By</option>
@@ -134,6 +142,8 @@
                                         {{#if (ne systemData.scene_end_effect.operator "maintain")}}
                                             <input type="number" name="system.scene_end_effect.variable" value="{{systemData.scene_end_effect.variable}}" style="width: 32px; text-align: center;"/>
                                         {{/if}}
+                                        <span> Min Resource Limit &ge; </span>
+                                        <input type="number" name="system.scene_end_effect.min_resource_limit" value="{{systemData.scene_end_effect.min_resource_limit}}" style="width: 40px; text-align: center;" data-tooltip="Minimum value for affected resources (HP/Stagger) after scene end effect."/>
                                     </div>
                                 </div>
                             </div>
