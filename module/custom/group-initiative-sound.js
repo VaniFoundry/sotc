@@ -16,55 +16,54 @@ const GROUP_INITIATIVE_SOUND = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function registerRollAllPatch() {
-  // ── libWrapper (preferred) ──────────────────────────────────────────────
-  if (typeof libWrapper !== "undefined") {
-    try {
-      libWrapper.register(
-        "sotc",                          // ← must match your system id in system.json
-        "Combat.prototype.rollAll",
-        async function (wrapped, ...args) {
-          console.log("group-initiative-sound | rollAll intercepted (libWrapper) ✓");
-          await playGroupInitiativeSound();
-          return wrapped(...args);
-        },
-        "WRAPPER"
-      );
-      console.log("group-initiative-sound | registered via libWrapper ✓");
-      return true;
-    } catch (e) {
-      console.warn("group-initiative-sound | libWrapper registration failed, falling back.", e);
-    }
-  }
-
-  // ── Direct prototype patch ──────────────────────────────────────────────
-  if (typeof Combat !== "undefined" && Combat.prototype.rollAll) {
-    const _rollAll = Combat.prototype.rollAll;
-    Combat.prototype.rollAll = async function (...args) {
-      console.log("group-initiative-sound | rollAll intercepted (prototype patch) ✓");
-      await playGroupInitiativeSound();
-      return _rollAll.call(this, ...args);
-    };
-    console.log("group-initiative-sound | registered via prototype patch ✓");
+function registerWithLibWrapper() {
+  if (typeof libWrapper === "undefined") return false;
+  try {
+    libWrapper.register(
+      "sotc",
+      "Combat.prototype.rollAll",
+      async function (wrapped, ...args) {
+        console.log("group-initiative-sound | rollAll intercepted (libWrapper) ✓");
+        await playGroupInitiativeSound();
+        return wrapped(...args);
+      },
+      "WRAPPER"
+    );
+    console.log("group-initiative-sound | registered via libWrapper ✓");
     return true;
+  } catch (e) {
+    console.warn("group-initiative-sound | libWrapper registration failed, falling back.", e);
+    return false;
   }
-
-  return false; // Combat not ready yet
 }
 
-// Try immediately at top level
-if (!registerRollAllPatch()) {
-  console.log("group-initiative-sound | Combat not ready, waiting for hooks…");
-  Hooks.once("init", () => {
-    if (!registerRollAllPatch()) {
-      Hooks.once("setup", () => {
-        if (!registerRollAllPatch()) {
-          console.error("group-initiative-sound | ✗ Failed to patch Combat.prototype.rollAll — does your system define rollAll?");
-        }
-      });
+function registerPrototypePatch() {
+  if (typeof Combat === "undefined" || !Combat.prototype.rollAll) return false;
+  const _rollAll = Combat.prototype.rollAll;
+  Combat.prototype.rollAll = async function (...args) {
+    console.log("group-initiative-sound | rollAll intercepted (prototype patch) ✓");
+    await playGroupInitiativeSound();
+    return _rollAll.call(this, ...args);
+  };
+  console.log("group-initiative-sound | registered via prototype patch ✓");
+  return true;
+}
+
+// libWrapper requires registration inside the libWrapper.Ready hook
+Hooks.once("libWrapper.Ready", () => {
+  if (!registerWithLibWrapper()) {
+    registerPrototypePatch();
+  }
+});
+
+// Fallback: if libWrapper isn't present, register via prototype patch at setup
+Hooks.once("setup", () => {
+  if (typeof libWrapper === "undefined") {
+    if (!registerPrototypePatch()) {
+      console.error("group-initiative-sound | ✗ Failed to patch Combat.prototype.rollAll");
     }
-  });
-}
+  }
+});
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
