@@ -129,12 +129,24 @@ Hooks.once("init", async function() {
         if (bindToClear)  clearUpdates.push({ _id: bindToClear.id,  "system.count": 0 });
         if (clearUpdates.length) await actor.updateEmbeddedDocuments("Item", clearUpdates);
 
-        // Post chat message — sound is suppressed here; rollAll plays it once manually
-        await roll.toMessage({
-          speaker: ChatMessage.getSpeaker({ actor: c.actor }),
-          flavor: `${c.name} rolls initiative (${roll.total - init_mod} → ${final_init})`,
-          sound: CONFIG.sounds.dice ?? null,
-        }, messageOptions);
+        // In grouping mode (called from rollAll), collect data instead of posting messages
+        if (this._sotcGroupInitiative) {
+          this._sotcGroupInitiative.push({
+            name:    c.name,
+            img:     c.actor?.img ?? "icons/svg/mystery-man.svg",
+            formula: final_formula,
+            rolled:  roll.total - init_mod,
+            mod:     init_mod,
+            final:   final_init,
+            type:    actor_type
+          });
+        } else {
+          await roll.toMessage({
+            speaker: ChatMessage.getSpeaker({ actor: c.actor }),
+            flavor: `${c.name} rolls initiative (${roll.total - init_mod} → ${final_init})`,
+            sound: CONFIG.sounds.dice ?? null,
+          }, messageOptions);
+        }
       }
 
       // Update initiatives
@@ -144,14 +156,14 @@ Hooks.once("init", async function() {
     }
 
     async rollAll(options = {}) {
-      // Roll all combatants ourselves in one batch — bypassing super.rollAll()
-      // so we can guarantee the sound plays exactly once at the end.
       const ids = this.combatants
         .filter(c => c.initiative === null)
         .map(c => c.id);
       if (!ids.length) return this;
 
-      // Silence sound for every individual roll
+      // Enable grouping mode — rollInitiative pushes row data here instead of posting messages
+      this._sotcGroupInitiative = [];
+
       const originalSound = CONFIG.sounds.dice;
       CONFIG.sounds.dice = null;
       try {
@@ -164,6 +176,52 @@ Hooks.once("init", async function() {
       if (originalSound) {
         foundry.audio.AudioHelper.play({ src: originalSound, volume: 0.8, autoplay: true, loop: false }, true);
       }
+
+      // ── Post grouped initiative card ─────────────────────────────────────
+      const initRows = this._sotcGroupInitiative ?? [];
+      delete this._sotcGroupInitiative;
+
+      if (initRows.length) {
+        const round = this.round ?? 1;
+        const playerRows = initRows.filter(r => r.type === "player").sort((a,b) => b.final - a.final);
+        const enemyRows  = initRows.filter(r => r.type !== "player").sort((a,b) => b.final - a.final);
+        const allRows    = [...playerRows, ...enemyRows];
+
+        const typeColor  = r => r.type === "player" ? "#4caf7d" : "#e05050";
+        const modStr     = r => r.mod > 0 ? `+${r.mod}` : r.mod < 0 ? `${r.mod}` : "";
+
+        const rowsHtml = allRows.map(r => `
+          <div style="display:flex; align-items:center; gap:8px; padding:3px 0; border-top:1px solid #1e1c2a;">
+            <img src="${r.img}" style="width:22px; height:22px; border-radius:50%; object-fit:cover; border:1px solid #3a3050; flex-shrink:0;">
+            <span style="flex:1; font-size:12px; color:#ddd;">${r.name}</span>
+            <span style="font-size:11px; color:#888;">${r.formula}${modStr(r) ? ` ${modStr(r)}` : ""} = ${r.rolled}</span>
+            <span style="font-size:12px; font-weight:700; color:${typeColor(r)}; min-width:24px; text-align:right;">${Math.floor(r.final)}</span>
+          </div>`).join("");
+
+        const topResult = allRows[0];
+        const previewText = topResult
+          ? `<span style="font-size:11px; color:#aaa;">${topResult.name} <strong style="color:#c9a227;">${Math.floor(topResult.final)}</strong> &nbsp;· ${initRows.length} rolled</span>`
+          : `<span style="font-size:11px; color:#aaa;">${initRows.length} rolled</span>`;
+
+        const cardHtml = `
+          <div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif; line-height:1.6;">
+            <div class="sotc-init-toggle" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; margin-bottom:4px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-chevron-down sotc-init-chevron" style="font-size:10px; color:#888; transition:transform 0.15s;"></i>
+                <strong style="color:#e8d9a0; font-size:14px;">Initiative — Round ${round}</strong>
+              </div>
+              ${previewText}
+            </div>
+            <div class="sotc-init-rows" data-collapsed="false">${rowsHtml}</div>
+          </div>`;
+
+        await ChatMessage.create({
+          speaker: { alias: "Combat" },
+          content: cardHtml,
+          flags: { sotc: { initiativeGroup: true } }
+        });
+      }
+
       return this;
     }
   }
@@ -198,9 +256,9 @@ Hooks.once("init", async function() {
   };
 
   // Register sheet application classes
-  Actors.unregisterSheet("core", ActorSheet);
+  Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
   Actors.registerSheet("sotc", SotCActorSheet, {types: ["character"], makeDefault: true});
-  Items.unregisterSheet("core", ItemSheet);
+  Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
   Items.registerSheet("sotc", SotCSkillSheet, {types: ["skill", "ego"], makeDefault: true});
   Items.registerSheet("sotc", SotCStatusSheet, {types: ["status"]});
   Items.registerSheet("sotc", SotCPassiveSheet, {types: ["passive"]});
@@ -244,14 +302,74 @@ Hooks.once("init", async function() {
     config: true
   });
 
-  game.settings.register("sotc", "sinkingMinResourceLimit", {
-    name: "SETTINGS.SotCSinkingMinResourceLimitN",
-    hint: "SETTINGS.SotCSinkingMinResourceLimitL",
+  game.settings.register("sotc", "playerDamageWizard", {
+    name: "Players Can Apply Damage to Enemies",
+    hint: "When enabled, players can open and resolve the Damage Wizard from their own skill rolls and apply damage directly to enemy tokens. The update is proxied through the GM socket so players never need ownership of the target. When disabled, only the GM can resolve the wizard.",
     scope: "world",
-    type: Number,
-    default: 1,
-    range: {min: 0, max: 20, step: 1},
+    type: Boolean,
+    default: false,
     config: true
+  });
+
+  // ── Alternate Rules ───────────────────────────────────────────────────────
+  game.settings.register("sotc", "enemyEmotionPoints", {
+    name: "Enemies Gain Emotion Points",
+    hint: "When enabled, enemy (non-player) actors also gain 1 Emotion Point when participating in a clash resolution, the same as player characters.",
+    scope: "world",
+    type: Boolean,
+    default: false,
+    config: true
+  });
+
+  game.settings.register("sotc", "sinkingEnemyEmotionPoints", {
+    name: "Sinking Also Costs Enemies Emotion Points",
+    hint: "[Alternate Rule] By default, Sinking only reduces Emotion Points on player characters. When enabled, enemy actors also lose EP equal to half their Sinking count when the end-of-scene Sinking effect triggers.",
+    scope: "world",
+    type: Boolean,
+    default: false,
+    config: true
+  });
+
+  game.settings.register("sotc", "sinkingPlayerEmotionPoints", {
+    name: "Sinking Costs Players Emotion Points",
+    hint: "When enabled (default), Sinking reduces a player character's Emotion Points by half the Sinking count at scene end. Disable to remove the EP cost for players entirely.",
+    scope: "world",
+    type: Boolean,
+    default: true,
+    config: true
+  });
+
+  // ── Inject section dividers ───────────────────────────────────────────────
+  // Foundry has no native grouping API so we hook renderSettingsConfig.
+  Hooks.on("renderSettingsConfig", (app, html) => {
+    const divider = (label, icon, color, borderColor) => `
+      <div style="
+        grid-column: 1 / -1;
+        border-top: 2px solid ${borderColor};
+        margin: 14px 0 6px 0;
+        padding-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: ${color};
+        font-family: 'Signika', serif;
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      ">
+        <i class="${icon}" style="font-size:14px; opacity:0.8;"></i>
+        ${label}
+      </div>
+    `;
+
+    // GM Settings divider before playerDamageWizard
+    const gmRow = html.find(`[data-setting-id="sotc.playerDamageWizard"]`).closest(".form-group");
+    if (gmRow.length) gmRow.before(divider("GM Settings", "fas fa-shield-alt", "#7ab8e0", "#2a5a7a"));
+
+    // Alternate Rules divider before enemyEmotionPoints
+    const altRow = html.find(`[data-setting-id="sotc.enemyEmotionPoints"]`).closest(".form-group");
+    if (altRow.length) altRow.before(divider("Alternate Rules", "fas fa-dice-d20", "#c090e0", "#5a3a6a"));
   });
 
   // Settings menu button that opens the KeywordConfigApp
@@ -287,6 +405,18 @@ Hooks.once("init", async function() {
     or() {
         return Array.prototype.slice.call(arguments, 0, -1).some(Boolean);
     }
+  });
+
+  // ── Actor update relay via hidden ChatMessage ─────────────────────────────
+  // game.socket is unreliable in Foundry v13 for systems. Instead, players
+  // create a hidden ChatMessage with a sotc flag containing the delta.
+  // The GM watches for these messages and applies the update, then deletes the message.
+  game.socket.on("system.sotc", async (data) => {
+    if (!data?.type) return;
+
+    // ── Safeguard prompt ──────────────────────────────────────────────────────
+    // GM sends this to the owning player's client so they see an interactive dialog.
+    // safeguardPrompt is now handled via chat message buttons — no socket needed
   });
 
   // Preload template partials
@@ -379,8 +509,9 @@ Hooks.on("getItemDirectoryEntryContext", (html, options) => {
 Hooks.on("renderCombatTracker", (app, html, data) => {
   const root = html instanceof HTMLElement ? html : html[0];
   if (!root) return;
+  const $html = $(root);
 
-  html.find(".combatant").each((_, el) => {
+  $html.find(".combatant").each((_, el) => {
     const $el = $(el);
 
     // If we don't actively remove the status effects then they end up supremely cluttering the initiative tracker
@@ -461,18 +592,45 @@ Hooks.on("createCombatant", async (combatant, options, userId) => {
   const actor = combatant.actor;
   if (!actor || !actor.system?.speed_dice) return;
 
-  const temp_num_dice = actor.system.speed_dice.num_dice ?? 1;
+  // Sum up extra speed dice from any passive status with target "number of speed dice"
+  let extra_dice = 0;
+  for (const s of actor.items.filter(i =>
+    i.type === "status" &&
+    i.system?.condition === "passive" &&
+    i.system?.target === "number of speed dice" &&
+    Number(i.system?.count) > 0
+  )) {
+    const sign = s.system.effect === "Decrease" ? -1 : 1;
+    const flat = Number(s.system.potency_flat ?? 0);
+    const pot  = Number(s.system.potency ?? 0);
+    const cnt  = Number(s.system.count ?? 0);
+    extra_dice += (flat + pot * cnt) * sign;
+  }
+
+  const base_num_dice = Number(actor.system.speed_dice.num_dice ?? 1);
+  const temp_num_dice = base_num_dice + extra_dice;
+
   if (temp_num_dice <= 1) return;
 
-  // You had to start with 1 combatant already to get more, obv
+  // Capture references before the setTimeout — combatant.parent may not be
+  // accessible after yielding if Foundry garbage-collects the reference.
+  const combat        = combatant.parent;
+  const actorId       = actor.id;
+  const tokenId       = combatant.tokenId;
+  const combatantName = combatant.name;
+
+  if (!combat) {
+    return;
+  }
+
   setTimeout(async () => {
     for (let i = 1; i < temp_num_dice; i++) {
-      await combatant.parent.createEmbeddedDocuments("Combatant", [{
-        actorId: actor.id,
-        tokenId: combatant.tokenId,
+      await combat.createEmbeddedDocuments("Combatant", [{
+        actorId,
+        tokenId,
         hidden: false,
         initiative: null,
-        name: `${combatant.name} #${i + 1}`,
+        name: `${combatantName} #${i + 1}`,
         flags: {
           sotc: {
             isSpeedDieClone: true,
@@ -514,7 +672,7 @@ Hooks.on("preRollInitiative", (combat, combatants, rollOptions) => {
 
     // Only override formula if valid and a speed die clone
     if (actorFormula && Roll.validate(actorFormula)) {
-      console.log(`Overriding initiative roll for ${combatant.name} with formula: ${actorFormula}`);
+
       if (actorType === "player") {
         const total = actorFormula + 0.01
         rollOptions.formula = total
@@ -541,16 +699,18 @@ function applyOperator(value, operator, variable = 0) {
 
 // New scene, new initiative! We don't currently preserve the previous round's initiative which SUCKS for the sake of accidentally skipping a round
 Hooks.on("combatRound", async (combat, round) => {
-  console.log("Starting new round: resetting all speed dice initiative, restoring light, removing stagger_likes (where appropriate), handling end of scene effects");
+  // Only the active GM runs this hook — prevents duplicate writes and permission
+  // errors when non-owners try to update player-controlled actors.
+  if (!game.user.isGM || !game.users.activeGM?.isSelf) return;
 
   const combatant_updates = [];
   const processed_actors = new Set();
-
 
   for (let c of combat.combatants) {
     const actor_updates = {};
     const actor_stag_updates = {};
     const actor = c.actor;
+
     if (!actor?.system?.speed_dice) continue; // I don't really know WHY we would, but in case you're using an actor in combat with no speed dice then uhhh, yeah?
 
     const stag_status_updates = [];
@@ -586,17 +746,42 @@ Hooks.on("combatRound", async (combat, round) => {
 
     const status_updates = [];
     const statuses = actor.items.filter(i => i.type === "status" && (i.system.condition !== "stagger_like") && (i.system.count > 0));
-    let delta_hp = 0;
-    let delta_stagger = 0;
+
+    // Capture IDs of active speed-dice statuses before the loop so we can detect expiry after flush
+    const pre_flush_speed_dice_ids = new Set(
+      statuses
+        .filter(i => i.system?.condition === "passive" && i.system?.target === "number of speed dice")
+        .map(i => i.id)
+    );
+
+    // Accumulate HP and stagger deltas so multiple statuses targeting the same
+    // resource don't overwrite each other in actor_updates.
+    let accumulated_hp_delta = 0;
+    let accumulated_hp_min   = 0;
+    let accumulated_stg_delta = 0;
+    let accumulated_stg_min   = 0;
+    let hp_affected  = false;
+    let stg_affected = false;
 
     // ─────────────────────────────────────────────────────────────────────────
     for (const status of statuses) {
       // Haste and Bind are cleared in rollInitiative after being applied — skip them here
       if (["haste", "bind"].includes(status.name.toLowerCase())) continue;
 
-      // Skip delta if scene_end maintain (no turn-end effect, e.g. Tremor)
-      const endOp = status.system.scene_end_effect.operator;
-      // Sinking too (lowercase for "Sinking")
+      // Duration expiry — only when use_duration is enabled and for passive/stagger_like.
+      // Active conditions use scene_end_effect to count down and must NOT be hard-expired here.
+      const _use_duration = status.system.use_duration ?? false;
+      const _stagger_end  = Number(status.system.stagger_end ?? 0);
+      const _duration     = Number(status.system.stagger_duration ?? 0);
+      const _condition    = status.system.condition;
+      if (_use_duration && _duration > 0 && _stagger_end > 0 && round.round >= _stagger_end &&
+          (_condition === "passive" || _condition === "stagger_like")) {
+        status_updates.push({ _id: status.id, "system.count": 0, "system.stagger_end": null });
+        continue;
+      }
+
+      // Sinking (and Sinking Deluge) are handled specially
+      const endOp = status.system.scene_end_effect?.operator;
       if (status.name.toLowerCase() === "sinking" || status.name.toLowerCase() === "sinking deluge") {
         const inflict = Number(status.system.count ?? 0);
         if (inflict > 0) {
@@ -610,66 +795,115 @@ Hooks.on("combatRound", async (combat, round) => {
             _id: status.id,
             "system.count": newc
           });
-          if (actor.system.initiative_type === "player") {
+          const isPlayer = actor.system.initiative_type === "player";
+          const isEnemy  = !isPlayer;
+          const playerEPEnabled = game.settings.get("sotc", "sinkingPlayerEmotionPoints");
+          const enemyEPEnabled  = game.settings.get("sotc", "sinkingEnemyEmotionPoints");
+          if ((isPlayer && playerEPEnabled) || (isEnemy && enemyEPEnabled)) {
             const cure = Number(actor.system.emotion ?? 0);
             actor_updates["system.emotion"] = Math.max(0, cure - Math.floor(inflict / 2));
           }
         }
-      } else if (endOp !== "maintain") {
+      } else if (endOp && endOp !== "maintain") {
+        // Generic active status — compute delta from CURRENT count BEFORE decrement
+        // so the last tick always fires (fixes "count 1→0 skips damage" bug).
         const effect_type = status.system.effect;
-        const flat_change = Number(status.system.potency_flat ?? 0)
-        const potency = Number(status.system.potency ?? 1);
-        const count = Number(status.system.count ?? 0);
-        let delta = count * potency + flat_change;
-        const sign = effect_type === "Decrease" ? -1 : 1;
-        const minResourceLimit = Number(status.system.scene_end_effect.min_resource_limit ?? 0);
-        const applyMinLimit = (target, value) => {
-          if (target === "hp" || target === "hp_stagger") {
-            actor_updates["system.health.value"] = Math.max(minResourceLimit, value);
-          }
-          if (target === "stagger" || target === "hp_stagger") {
-            actor_updates["system.stagger.value"] = Math.max(minResourceLimit, value);
-          }
-        };
+        const flat_change = Number(status.system.potency_flat ?? 0);
+        const potency     = Number(status.system.potency ?? 1);
+        const count       = Number(status.system.count ?? 0);
+        const delta       = count * potency + flat_change;
+        const sign        = effect_type === "Decrease" ? -1 : 1;
+        const minLimit    = Number(status.system.scene_end_effect?.min_resource_limit ?? 0);
+
         if (status.system.target === "hp" || status.system.target === "hp_stagger") {
-          const currHp = actor.system.health.value ?? 0;
-          const newHp = currHp + delta * sign;
-          applyMinLimit(status.system.target, newHp);
+          accumulated_hp_delta += delta * sign;
+          accumulated_hp_min    = Math.max(accumulated_hp_min, minLimit);
+          hp_affected = true;
         }
         if (status.system.target === "stagger" || status.system.target === "hp_stagger") {
-          const currStagger = actor.system.stagger.value ?? 0;
-          const newStagger = currStagger + delta * sign;
-          applyMinLimit(status.system.target, newStagger);
+          accumulated_stg_delta += delta * sign;
+          accumulated_stg_min    = Math.max(accumulated_stg_min, minLimit);
+          stg_affected = true;
         }
       }
-      if (status.system.scene_end_effect.operator === "clear") {
-        status_updates.push({
-          _id: status.id,
-          "system.count": 0
-        })
-      } else if (status.system.scene_end_effect.operator !== "maintain") {
-        const new_count = applyOperator(status.system.count, status.system.scene_end_effect.operator, status.system.scene_end_effect.variable);
-        status_updates.push({
-          _id: status.id,
-          "system.count": Math.max(new_count, 0)
-        })
+
+      // Decrement / clear the count
+      if (endOp === "clear") {
+        status_updates.push({ _id: status.id, "system.count": 0 });
+      } else if (endOp && endOp !== "maintain") {
+        const new_count = applyOperator(status.system.count, endOp, status.system.scene_end_effect.variable);
+        status_updates.push({ _id: status.id, "system.count": Math.max(new_count, 0) });
       }
     }
-    if (delta_hp) {
-      actor_updates["system.health.value"] = (actor.system.health.value ?? 0) + delta_hp;
+
+    // Apply accumulated resource changes (single write per resource avoids overwrite)
+    if (hp_affected) {
+      actor_updates["system.health.value"] = Math.max(accumulated_hp_min,
+        (actor.system.health.value ?? 0) + accumulated_hp_delta);
     }
-    if (delta_stagger) {
-      actor_updates["system.stagger.value"] = (actor.system.stagger.value ?? 0) + delta_stagger;
+    if (stg_affected) {
+      actor_updates["system.stagger.value"] = Math.max(accumulated_stg_min,
+        (actor.system.stagger.value ?? 0) + accumulated_stg_delta);
     }
 
     if (status_updates.length) {
       await actor.updateEmbeddedDocuments("Item", status_updates);
     }
 
+    // After expiry updates: recompute expected speed dice and remove any excess clones.
+    // Capture speed-dice statuses BEFORE the flush so we can detect which ones were cleared.
+    {
+      const speed_dice_expired = pre_flush_speed_dice_ids.size > 0 && status_updates.some(u =>
+        pre_flush_speed_dice_ids.has(u._id)
+      );
+
+      if (speed_dice_expired) {
+        // Recompute expected extra after the updates have been applied
+        let expected_extra = 0;
+        for (const s of actor.items.filter(i =>
+          i.type === "status" &&
+          i.system?.condition === "passive" &&
+          i.system?.target === "number of speed dice" &&
+          Number(i.system?.count) > 0
+        )) {
+          const sign = s.system.effect === "Decrease" ? -1 : 1;
+          expected_extra += (Number(s.system.potency_flat ?? 0) + Number(s.system.potency ?? 0) * Number(s.system.count ?? 0)) * sign;
+        }
+        expected_extra = Math.max(0, expected_extra);
+
+        const base_num_dice  = Number(actor.system.speed_dice?.num_dice ?? 1);
+        // expected_total is the total combatant slots needed — base counts as 1, each extra is a clone
+        const expected_clones = base_num_dice - 1 + expected_extra;
+
+        const clones = combat.combatants.filter(c =>
+          c.actorId === actor.id &&
+          c.getFlag("sotc", "isSpeedDieClone")
+        );
+
+
+        if (clones.length > expected_clones) {
+          const excess = clones.slice(expected_clones);
+          await combat.deleteEmbeddedDocuments("Combatant", excess.map(c => c.id));
+        }
+      }
+    }
+
+    // Compute light_regen_mod inline from statuses — the cached modifiers object
+    // was built before this round's status updates, so it may be stale.
+    let inline_light_regen_mod = 0;
+    for (const s of actor.items.filter(i => i.type === "status" && i.system.condition === "passive" && i.system.target === "light regen" && Number(i.system.count) > 0)) {
+      const sign = s.system.effect === "Decrease" ? -1 : 1;
+      const flat = Number(s.system.potency_flat ?? 0);
+      const pot  = Number(s.system.potency ?? 0);
+      const cnt  = Number(s.system.count ?? 0);
+      inline_light_regen_mod += (flat + pot * cnt) * sign;
+    }
+
     const light = actor.system.light;
     if (!modifiers.null_light_regen) {
       const current = Number(light.value) || 0;
-      const regen = Number(light.light_regen) || 0;
+      const base_regen = Number(light.light_regen) || 0;
+      const regen = base_regen + inline_light_regen_mod;
       const max = Number(light.max) || current;
 
       if (regen !== 0 && current < max) {
@@ -679,11 +913,11 @@ Hooks.on("combatRound", async (combat, round) => {
     }
 
 
+    // Merge stagger updates into actor_updates so everything goes in one write
+    Object.assign(actor_updates, actor_stag_updates);
+
     if (Object.keys(actor_updates).length) {
-      await actor.update(actor_updates);
-    }
-    if (Object.keys(actor_stag_updates).length) {
-      await actor.update(actor_stag_updates);
+      await game.sotc.updateActor(actor, actor_updates);
     }
   }
   
@@ -760,8 +994,79 @@ const SOTC_BASE_EFFECTS = new Set([
 
 // Helper that gets our ActiveEffect for a given status effect which we need for rendering our statuses
 function getActorStatusEffect(actor, statusId) {
-  return actor.effects.find(e => e.statuses?.has(statusId));
+  // Prefer the statusItemId flag (set by our code) over statuses.has() which
+  // can miss effects created before the flag was introduced.
+  return actor?.effects?.find(e =>
+    e.flags?.sotc?.statusItemId === statusId ||
+    e.statuses?.has(statusId)
+  ) ?? null;
 }
+
+// ── Spawn extra speed-die combatant clones for a status mid-combat ──────────
+// Called from both createItem (status freshly added with count > 0) and
+// updateItem (count goes from 0 → positive).
+async function spawnSpeedDiceClones(item, newCount) {
+  if (item.system?.condition !== "passive") return;
+  if (item.system?.target !== "number of speed dice") return;
+  if (!game.combat?.active) return;
+  if (newCount <= 0) return;
+
+  const actor = item.actor;
+  if (!actor) return;
+
+  const OWNER_LEVEL = 3;
+  const designatedOwner = game.users.find(u =>
+    !u.isGM && u.active &&
+    (actor.ownership[u.id] === OWNER_LEVEL || actor.ownership.default === OWNER_LEVEL)
+  );
+  if (designatedOwner) {
+    if (game.user.id !== designatedOwner.id) return;
+  } else {
+    if (!game.user.isGM || !game.users.activeGM?.isSelf) return;
+  }
+
+  const sign     = item.system.effect === "Decrease" ? -1 : 1;
+  const flat     = Number(item.system.potency_flat ?? 0);
+  const pot      = Number(item.system.potency ?? 0);
+  const extra    = (flat + pot * newCount) * sign;
+  const base     = Number(actor.system.speed_dice?.num_dice ?? 1);
+  const expected = base + extra;
+  const existing = game.combat.combatants.filter(c => c.actorId === actor.id);
+  const toCreate = Math.max(0, expected - existing.length);
+
+  if (toCreate <= 0) return;
+
+  const base_combatant = existing.find(c => !c.flags?.sotc?.isSpeedDieClone);
+  if (!base_combatant) return;
+
+  const actorFormula = actor.system?.speed_dice?.dice_size ?? CONFIG.Combat.initiative.formula ?? "1d6";
+
+  for (let i = 0; i < toCreate; i++) {
+    const cloneIndex = existing.length + i;
+    let initiative = null;
+    try {
+      const roll = await new Roll(actorFormula).evaluate({ async: true });
+      initiative = Math.max(1, roll.total);
+    } catch(err) {
+      console.warn(`sotc | spawnSpeedDiceClones: could not roll initiative for clone:`, err);
+    }
+    await game.combat.createEmbeddedDocuments("Combatant", [{
+      actorId: actor.id,
+      tokenId: base_combatant.tokenId,
+      hidden: false,
+      initiative,
+      name: `${base_combatant.name} #${cloneIndex + 1}`,
+      flags: { sotc: { isSpeedDieClone: true, speedDieIndex: cloneIndex } }
+    }]);
+    ui.combat?.render();
+  }
+}
+
+// Lock set to prevent concurrent syncStatusItemEffect calls for the same item.
+// Key is "actorId::itemId" — using a composite prevents cross-actor collisions
+// and also covers the createItem -> updateItem double-fire: both share the same
+// item.id so the second call is blocked until the first finishes.
+const _syncLocks = new Set();
 
 // Helper that correctly gives us our ActiveEffects or obliterates them from existence
 async function syncStatusItemEffect(item) {
@@ -769,71 +1074,228 @@ async function syncStatusItemEffect(item) {
   const actor = item.actor;
   if (!actor) return;
 
-  // Needs testing! If I haven't deleted this comment then I am a chud loser cringelord!!!
-  if (!actor.isOwner || !(game.user === game.users.activeGM)) return;
+  // Exactly ONE client should run this sync to avoid races that create duplicates.
+  // Priority: the actor's designated non-GM owner if they are currently active,
+  // otherwise the active GM.
+  // "Designated owner" = the first non-GM user in actor.ownership with OWNER level.
+  const OWNER_LEVEL = 3;
+  const designatedOwner = game.users.find(u =>
+    !u.isGM &&
+    u.active &&
+    (actor.ownership[u.id] === OWNER_LEVEL || actor.ownership.default === OWNER_LEVEL)
+  );
 
-  const count = Number(item.system?.count ?? 0);
-  const existing = getActorStatusEffect(actor, item.id);
-
-  // Add when need to
-  if (count > 0 && !existing) {
-    await actor.createEmbeddedDocuments("ActiveEffect", [{
-      name: item.name,
-      icon: item.img,
-      statuses: [item.id],
-      origin: item.uuid,
-      transfer: false,
-      flags: {
-        sotc: {
-          statusItemId: item.id
-        }
-      }
-    }]);
-    // Redraw badges on all canvas tokens for this actor so counts appear immediately
-    canvas.tokens?.placeables
-      .filter(t => t.actor?.id === actor.id)
-      .forEach(t => requestAnimationFrame(() => t.drawEffects()));
-    return;
+  if (designatedOwner) {
+    // A player owns this actor and is online — only they should run the sync
+    if (game.user.id !== designatedOwner.id) return;
+  } else {
+    // No online player owner — only the active GM runs it
+    const isActiveGM = game.user.isGM && game.users.activeGM?.isSelf;
+    if (!isActiveGM) return;
   }
 
-  // Remove when need to
-  if (count <= 0 && existing) {
-    await existing.delete();
+  const lockKey = `${actor.id}::${item.id}`;
+  if (_syncLocks.has(lockKey)) return;
+  _syncLocks.add(lockKey);
+
+  try {
+    const count = Number(item.system?.count ?? 0);
+
+    // Collect ALL effects that belong to this status item (by either lookup method)
+    const allMatching = actor.effects.filter(e =>
+      e.flags?.sotc?.statusItemId === item.id ||
+      e.statuses?.has(item.id)
+    );
+
+    // Deduplicate — keep at most one, delete the rest
+    if (allMatching.length > 1) {
+      const dupeIds = allMatching.slice(1).map(e => e.id).filter(id => {
+        // Only delete IDs that still exist on the actor
+        return actor.effects.has(id);
+      });
+      if (dupeIds.length) {
+        try {
+          await actor.deleteEmbeddedDocuments("ActiveEffect", dupeIds);
+        } catch (err) {
+          // Another client may have already deleted these — not a problem
+          console.warn(`sotc | syncStatusItemEffect: could not delete dupes for ${item.name} on ${actor.name}:`, err.message);
+        }
+      }
+    }
+
+    const existing = allMatching[0] ?? null;
+
+    // Add when needed
+    if (count > 0 && !existing) {
+      await actor.createEmbeddedDocuments("ActiveEffect", [{
+        name: item.name,
+        icon: item.img,
+        statuses: [item.id],
+        origin: item.uuid,
+        transfer: false,
+        flags: { sotc: { statusItemId: item.id } }
+      }]);
+      // Redraw badges on all canvas tokens for this actor so counts appear immediately
+      canvas.tokens?.placeables
+        .filter(t => t.actor?.id === actor.id)
+        .forEach(t => requestAnimationFrame(() => t.drawEffects()));
+      return;
+    }
+
+    // Remove when needed — guard against already-deleted effects
+    if (count <= 0 && existing) {
+      // Re-check the effect still exists on the actor before deleting
+      if (actor.effects.has(existing.id)) {
+        try {
+          await existing.delete();
+        } catch (err) {
+          console.warn(`sotc | syncStatusItemEffect: could not delete effect for ${item.name} on ${actor.name}:`, err.message);
+        }
+      }
+    }
+  } finally {
+    _syncLocks.delete(lockKey);
   }
 }
 
 Hooks.once("ready", () => {
 
+  // ── Actor update relay ────────────────────────────────────────────────────
+  // Players can't directly update actors they don't own. Instead they create a
+  // hidden ChatMessage with a sotc.actorDelta flag. The GM's createChatMessage
+  // hook detects it, applies the delta, and deletes the relay message.
+  // This works in all Foundry versions without needing socket registration.
+  if (game.user.isGM) {
+    Hooks.on("createChatMessage", async (message) => {
+      const delta = message.getFlag("sotc", "actorDelta");
+      if (!delta) return;
+      if (!game.users.activeGM?.isSelf) return;
+
+      // Delete the relay message immediately so it doesn't appear in chat
+      try { await message.delete(); } catch (e) { /* already deleted */ }
+
+      const actor = game.actors.get(delta.actorId) ??
+        canvas.tokens?.placeables?.find(t => t.actor?.id === delta.actorId)?.actor ?? null;
+
+      if (!actor) { console.warn(`sotc | relay: actor ${delta.actorId} not found`); return; }
+
+      const d = delta.delta;
+      const updates = {};
+      if (d.hp          !== undefined) updates["system.health.value"]  = (actor.system.health.value  ?? 0) + d.hp;
+      if (d.stagger     !== undefined) { const c = actor.system.stagger.value ?? 0, m = actor.system.stagger.max ?? c; updates["system.stagger.value"] = Math.max(0, Math.min(m, c + d.stagger)); }
+      if (d.staggerGain !== undefined) { const c = actor.system.stagger.value ?? 0, m = actor.system.stagger.max ?? c; updates["system.stagger.value"] = Math.min(m, c + d.staggerGain); }
+      if (d.emotion     !== undefined) { const c = actor.system.emotion ?? 0, m = actor.system.emotion_max ?? actor.system.emotionMax ?? 99; updates["system.emotion"] = Math.max(0, Math.min(m, c + d.emotion)); }
+
+      if (Object.keys(updates).length) {
+        try { await actor.update(updates); }
+        catch (err) { console.error(`sotc | relay: update failed for ${actor.name}:`, err); }
+      }
+    });
+  }
+
+  // ── Startup cleanup: purge duplicate sotc ActiveEffects ───────────────────
+  // Old sessions before the GM-only sync guard was added could accumulate duplicate
+  // ActiveEffects (one per connected client that raced createEmbeddedDocuments).
+  // The active GM cleans these up silently on every world load.
+  if (game.user.isGM && game.users.activeGM?.isSelf) {
+    (async () => {
+      let totalCleaned = 0;
+      for (const actor of game.actors) {
+        const byItem = new Map();
+        for (const e of actor.effects) {
+          const key = e.flags?.sotc?.statusItemId ?? (e.statuses?.size === 1 ? [...e.statuses][0] : null);
+          if (!key) continue;
+          if (!byItem.has(key)) byItem.set(key, []);
+          byItem.get(key).push(e.id);
+        }
+        const toDelete = [];
+        for (const [, ids] of byItem) {
+          if (ids.length > 1) toDelete.push(...ids.slice(1));
+        }
+        if (toDelete.length) {
+          try {
+            await actor.deleteEmbeddedDocuments("ActiveEffect", toDelete);
+            totalCleaned += toDelete.length;
+          } catch (err) {
+            // Silently ignore — effects may have already been cleaned up
+          }
+        }
+      }
+      if (totalCleaned > 0) {
+        console.log(`sotc | Startup cleanup removed ${totalCleaned} duplicate ActiveEffect(s).`);
+      }
+    })();
+  }
+
   // ── Custom dice sound ───────────────────────────────────────────────────
   CONFIG.sounds.dice = "systems/sotc/assets/audio/speed_dice.mp3";
   console.log("sotc | Custom dice sound registered ✓");
 
-  // ── Socket: allow players to update actors they do not own (e.g. applying
-  // ── damage to an enemy token). The active GM executes the update.
+  // ── Socket name (used by updateActor to emit) ─────────────────────────────
+  // The listener is registered in the setup hook above to ensure it's ready
+  // before any messages arrive.
   const SOCKET_NAME = "system.sotc";
 
-  game.socket.on(SOCKET_NAME, async (data) => {
-    if (!game.user.isGM || !game.users.activeGM?.isSelf) return;
-    if (data.type === "actorUpdate") {
-      const actor = game.actors.get(data.actorId);
-      if (!actor) return;
-      await actor.update(data.updates);
-    }
-  });
-
   /**
-   * Update an actor. If the user owns it, update directly.
-   * Otherwise proxy through the GM via socket.
+   * Apply a stat delta to an actor.
+   * If the GM: applies directly using fresh actor data.
+   * If a player: sends a delta to the GM via socket. The GM recomputes
+   * final values from their own fresh copy, preventing stale-value bugs.
    */
-  game.sotc.updateActor = async function(actor, updates) {
-    if (actor.isOwner) {
-      await actor.update(updates);
+  game.sotc.updateActor = async function(actor, delta) {
+    if (!actor || !Object.keys(delta ?? {}).length) return;
+
+    const isActiveGM = game.user.isGM && game.users.activeGM?.isSelf;
+
+    // Shared helper — builds absolute update object from delta using provided actor data
+    const buildUpdates = (a, d) => {
+      const u = {};
+      if (d.hp !== undefined)
+        u["system.health.value"] = (a.system.health.value ?? 0) + d.hp;
+      if (d.stagger !== undefined) {
+        const c = a.system.stagger.value ?? 0, m = a.system.stagger.max ?? c;
+        u["system.stagger.value"] = Math.max(0, Math.min(m, c + d.stagger));
+      }
+      if (d.staggerGain !== undefined) {
+        const c = a.system.stagger.value ?? 0, m = a.system.stagger.max ?? c;
+        u["system.stagger.value"] = Math.min(m, c + d.staggerGain);
+      }
+      if (d.emotion !== undefined) {
+        const c = a.system.emotion ?? 0, m = a.system.emotion_max ?? a.system.emotionMax ?? 99;
+        u["system.emotion"] = Math.max(0, Math.min(m, c + d.emotion));
+      }
+      // Legacy: absolute value keys passed directly (from combatRound etc.)
+      for (const k of Object.keys(d).filter(k => k.startsWith("system."))) u[k] = d[k];
+      return u;
+    };
+
+    if (isActiveGM || actor.isOwner) {
+      // GM can update any actor; players can update their own actors directly
+      const updates = buildUpdates(actor, delta);
+      if (Object.keys(updates).length) {
+        try { await actor.update(updates); }
+        catch (err) { console.error(`sotc | direct update failed for ${actor.name}:`, err); }
+      }
     } else {
-      game.socket.emit(SOCKET_NAME, { type: "actorUpdate", actorId: actor.id, updates });
+      // Player updating an actor they don't own — relay via hidden ChatMessage.
+      // The GM's createChatMessage hook processes it and applies the delta.
+      if (!game.users.activeGM) {
+        ui.notifications.warn("No active GM — cannot apply changes.");
+        return;
+      }
+      await ChatMessage.create({
+        content: "",
+        whisper: [],
+        flags: { sotc: { actorDelta: { actorId: actor.id, delta } } },
+        // Prevent this relay message from appearing in chat
+        style: CONST.CHAT_MESSAGE_STYLES.OTHER,
+        speaker: { alias: "sotc-relay" }
+      });
     }
   };
 
 
+  const TokenHUD = foundry.applications.hud.TokenHUD;
   const originalToggle = TokenHUD.prototype._onToggleEffect;
 
   TokenHUD.prototype._onToggleEffect = async function (event) {
@@ -904,7 +1366,7 @@ Hooks.once("ready", () => {
       // Find matching sprite by icon path, endsWith is critical according to ChatGPT but I don't really parse the magic here
       const sprite = sprites.find(s => {
         const src = s.texture?.baseTexture?.resource?.src;
-        return src && src.includes(effect.icon.split("/").pop());
+        return src && src.includes((effect.img ?? effect.icon ?? "").split("/").pop());
       });
 
       if (!sprite) continue;
@@ -934,6 +1396,7 @@ Hooks.once("ready", () => {
     }
   }
 
+  const Token = foundry.canvas.placeables.Token;
   const originalDrawEffects = Token.prototype.drawEffects;
   Token.prototype.drawEffects = async function (...args) {
     await originalDrawEffects.apply(this, args);
@@ -1016,16 +1479,185 @@ Hooks.on("renderTokenHUD", (hud, html, data) => {
   });
 });
 
+
+// ── Safeguard notification ──────────────────────────────────────────────────
+// Shared helper — only the active GM runs this to avoid duplicate messages.
+async function _notifySafeguard(actor, item, newCount) {
+  // Only the active GM creates the prompt message — avoids duplicates across clients.
+  if (!game.user.isGM || !game.users.activeGM?.isSelf) return;
+
+  const safeguard = actor.items.find(i =>
+    i.type === "status" &&
+    i.name.toLowerCase() === "safeguard" &&
+    Number(i.system?.count ?? 0) > 0
+  );
+  if (!safeguard) return;
+
+  const sgCount = Number(safeguard.system.count);
+  const statusType = item.system?.types ?? "status";
+  const OWNER_LEVEL = 3;
+
+  // Whisper to active owners + all GMs so everyone relevant sees it
+  const whisperTo = game.users.filter(u =>
+    u.active && (
+      u.isGM ||
+      actor.ownership[u.id] === OWNER_LEVEL ||
+      actor.ownership.default === OWNER_LEVEL
+    )
+  );
+
+  const sgIcon = `<img src="systems/sotc/assets/statuses/Safeguard.png" style="width:20px;height:20px;border:none;vertical-align:middle;margin-right:5px;">`;
+  const statusIcon = item.img ? `<img src="${item.img}" style="width:16px;height:16px;border:none;vertical-align:middle;margin-right:4px;">` : "";
+
+  await ChatMessage.create({
+    content: `
+      <div style="font-family:'Signika',sans-serif;background:#12111a;border:1px solid #2a5040;border-radius:6px;padding:10px 12px;">
+        <div style="color:#4caf7d;font-weight:700;font-size:13px;margin-bottom:8px;">${sgIcon}Safeguard — ${actor.name}</div>
+        <div style="color:#ccc;font-size:12px;margin-bottom:10px;">
+          ${statusIcon}<b style="color:#e8d9a0;">${item.name}</b> (${statusType}, count: ${newCount}) was applied.
+          <br>Spend 1 Safeguard (${sgCount} → ${sgCount - 1}) to nullify one stack?
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="sotc-safeguard-yes"
+            data-actor-id="${actor.id}"
+            data-safeguard-id="${safeguard.id}"
+            data-sg-count="${sgCount}"
+            style="flex:1;background:#2a5040;color:#aee8c8;border:1px solid #3a7060;border-radius:4px;padding:4px 8px;cursor:pointer;">
+            <i class="fas fa-shield-alt"></i> Spend Safeguard
+          </button>
+          <button class="sotc-safeguard-no"
+            style="flex:1;background:#3a2020;color:#e8a0a0;border:1px solid #6a3030;border-radius:4px;padding:4px 8px;cursor:pointer;">
+            <i class="fas fa-times"></i> Ignore
+          </button>
+        </div>
+      </div>`,
+    whisper: whisperTo,
+    speaker: { alias: actor.name },
+    flags: { sotc: { safeguardPromptActorId: actor.id } }
+  });
+}
+
+// Track previous counts so updateItem can detect 0 → positive transitions.
+const _safeguardPrevCounts = new Map();
+
+Hooks.on("preUpdateItem", (item, changes) => {
+  if (item.type !== "status") return;
+  if (!["debuff", "ailment"].includes(item.system?.types)) return;
+  if (changes.system?.count === undefined) return;
+  _safeguardPrevCounts.set(item.id, Number(item.system?.count ?? 0));
+});
+
+// Fires when a brand-new debuff/ailment is added to an actor with count > 0.
+Hooks.on("createItem", async (item) => {
+  if (item.type !== "status") return;
+  const actor = item.actor;
+  if (!actor) return;
+  if (!["debuff", "ailment"].includes(item.system?.types)) return;
+  const count = Number(item.system?.count ?? 0);
+  if (count <= 0) return;
+  await _notifySafeguard(actor, item, count);
+});
+
 // Relevent only to our status effects, not any of the other items that may be created. Since our helper only does anything for statuses, we can call this senselessly
 Hooks.on("createItem", async (item) => {
   await syncStatusItemEffect(item);
+  // If a speed-dice status is freshly added with count > 0, spawn clones immediately
+  if (item.type === "status") {
+    const count = Number(item.system?.count ?? 0);
+    if (count > 0) await spawnSpeedDiceClones(item, count);
+  }
 });
 
 Hooks.on("updateItem", async (item, changes) => {
   if (item.type !== "status") return;
 
-  // Redundant safety
-  if (changes?.system?.count === undefined) return;
+  const countChanged = changes.system?.count !== undefined;
+
+  // ── Safeguard notification on count update ──
+  // Fires when a debuff/ailment goes from 0 → positive count.
+  // Uses _safeguardPrevCounts (set by preUpdateItem) for the true previous value,
+  // since item.system.count is already the new value by the time updateItem fires.
+  if (countChanged) {
+    const newCount = Number(changes.system.count);
+    const prevCount = _safeguardPrevCounts.get(item.id) ?? Number(item.system?.count ?? 0);
+    _safeguardPrevCounts.delete(item.id);
+    const actor = item.actor;
+    if (newCount > prevCount && newCount > 0 && actor &&
+        ["debuff", "ailment"].includes(item.system?.types)) {
+      await _notifySafeguard(actor, item, newCount);
+    }
+  }
+
+  // Clear stagger_end when use_duration is toggled off
+  if (changes.system?.use_duration === false && Number(item.system.stagger_end ?? 0) > 0) {
+    await item.update({ "system.stagger_end": null }, { diff: true });
+  }
+
+  if (countChanged) {
+    const newCount  = Number(changes.system.count);
+    const condition = item.system.condition;
+    const use_duration   = item.system.use_duration ?? false;
+    const duration       = Number(item.system.stagger_duration ?? 0);
+    const alreadyStamped = Number(item.system.stagger_end ?? 0) > 0;
+
+    // Stamp stagger_end only when use_duration is enabled and for passive/stagger_like.
+    // Active conditions use scene_end_effect to count down — stamping them
+    // causes hard-wipe instead of ticking (the Burn bug).
+    if (use_duration && newCount > 0 && duration > 0 && !alreadyStamped &&
+        (condition === "passive" || condition === "stagger_like")) {
+      const applied_round = game.combat?.round ?? 0;
+      const end_round = applied_round + duration;
+      await item.update({ "system.stagger_end": end_round }, { diff: true });
+      // Don't return — fall through so speed dice clones can still be spawned below
+    }
+
+    // If this is a speed-dice status going from 0 → positive mid-combat, spawn clones now.
+    if (newCount > 0) {
+      await spawnSpeedDiceClones(item, newCount);
+    } else if (
+      newCount <= 0 &&
+      item.system?.condition === "passive" &&
+      item.system?.target === "number of speed dice" &&
+      game.combat?.active &&
+      // Only one client should delete — GM if no active player owner, else designated owner
+      (() => {
+        const a = item.actor;
+        if (!a) return false;
+        const OWNER_LEVEL = 3;
+        const owner = game.users.find(u => !u.isGM && u.active && (a.ownership[u.id] === OWNER_LEVEL || a.ownership.default === OWNER_LEVEL));
+        return owner ? game.user.id === owner.id : (game.user.isGM && game.users.activeGM?.isSelf);
+      })()
+    ) {
+      // Status cleared — remove excess clone combatants for this actor
+      const actor = item.actor;
+      if (actor) {
+        // Recount expected extra from remaining active speed-dice statuses (excluding this one)
+        let expected_extra = 0;
+        for (const s of actor.items.filter(i =>
+          i.type === "status" && i.id !== item.id &&
+          i.system?.condition === "passive" &&
+          i.system?.target === "number of speed dice" &&
+          Number(i.system?.count) > 0
+        )) {
+          const sign = s.system.effect === "Decrease" ? -1 : 1;
+          expected_extra += (Number(s.system.potency_flat ?? 0) + Number(s.system.potency ?? 0) * Number(s.system.count ?? 0)) * sign;
+        }
+        expected_extra = Math.max(0, expected_extra);
+        const base_num_dice = Number(actor.system.speed_dice?.num_dice ?? 1);
+        const expected_clones = base_num_dice - 1 + expected_extra;
+        const clones = game.combat.combatants.filter(c =>
+          c.actorId === actor.id && c.getFlag("sotc", "isSpeedDieClone")
+        );
+        if (clones.length > expected_clones) {
+          const excess = clones.slice(expected_clones);
+          const validIds = excess.map(c => c.id).filter(id => game.combat.combatants.has(id));
+          if (validIds.length && game.user.isGM && game.users.activeGM?.isSelf) {
+            await game.combat.deleteEmbeddedDocuments("Combatant", validIds).catch(() => {});
+          }
+        }
+      }
+    }
+  }
 
   await syncStatusItemEffect(item);
 });
@@ -1033,9 +1665,64 @@ Hooks.on("updateItem", async (item, changes) => {
 // If we delete something, we want to make sure it doesn't get permanently stuck rendering. That'd be real awkward
 Hooks.on("deleteItem", async (item) => {
   if (item.type !== "status") return;
+  const actor = item.actor;
+  if (!actor) return;
 
-  const effect = getActorStatusEffect(item.actor, item.id);
-  if (effect) await effect.delete();
+  // Same single-client guard as syncStatusItemEffect
+  const OWNER_LEVEL = 3;
+  const designatedOwner = game.users.find(u =>
+    !u.isGM &&
+    u.active &&
+    (actor.ownership[u.id] === OWNER_LEVEL || actor.ownership.default === OWNER_LEVEL)
+  );
+  if (designatedOwner) {
+    if (game.user.id !== designatedOwner.id) return;
+  } else {
+    const isActiveGM = game.user.isGM && game.users.activeGM?.isSelf;
+    if (!isActiveGM) return;
+  }
+
+  const effect = getActorStatusEffect(actor, item.id);
+  if (effect && actor.effects.has(effect.id)) {
+    try {
+      await effect.delete();
+    } catch (err) {
+      console.warn(`sotc | deleteItem: could not delete effect for ${item.name}:`, err.message);
+    }
+  }
+
+  // If this was a speed-dice status, remove any clones it granted
+  // Only the designated owner or active GM should do this — same guard as above
+  if (
+    item.system?.condition === "passive" &&
+    item.system?.target === "number of speed dice" &&
+    game.combat?.active &&
+    (designatedOwner ? game.user.id === designatedOwner.id : (game.user.isGM && game.users.activeGM?.isSelf))
+  ) {
+    let expected_extra = 0;
+    for (const s of actor.items.filter(i =>
+      i.type === "status" && i.id !== item.id &&
+      i.system?.condition === "passive" &&
+      i.system?.target === "number of speed dice" &&
+      Number(i.system?.count) > 0
+    )) {
+      const sign = s.system.effect === "Decrease" ? -1 : 1;
+      expected_extra += (Number(s.system.potency_flat ?? 0) + Number(s.system.potency ?? 0) * Number(s.system.count ?? 0)) * sign;
+    }
+    expected_extra = Math.max(0, expected_extra);
+    const base_num_dice = Number(actor.system.speed_dice?.num_dice ?? 1);
+    const expected_clones = base_num_dice - 1 + expected_extra;
+    const clones = game.combat.combatants.filter(c =>
+      c.actorId === actor.id && c.getFlag("sotc", "isSpeedDieClone")
+    );
+    if (clones.length > expected_clones) {
+      const excess = clones.slice(expected_clones);
+      const validIds = excess.map(c => c.id).filter(id => game.combat.combatants.has(id));
+      if (validIds.length && game.user.isGM && game.users.activeGM?.isSelf) {
+        await game.combat.deleteEmbeddedDocuments("Combatant", validIds).catch(() => {});
+      }
+    }
+  }
 });
 
 
@@ -1074,25 +1761,34 @@ Hooks.on("createActor", async (actor, options, userId) => {
   //   - post_actives: "Trigger (Sinking) Deluge" entry stays at 0 so it can fully
   //     drain stagger as part of its overflow-damage calculation.
   for (const item of items) {
-    const isSinking = (item.name ?? "").toLowerCase() === "sinking";
-    if (!isSinking) continue;
     if (!item.system) continue;
+    const nameLower = (item.name ?? "").toLowerCase();
 
-    // scene_end_effect floor
-    const sce = item.system.scene_end_effect;
-    if (sce && (sce.min_resource_limit == null)) {
-      item.system.scene_end_effect = { ...sce, min_resource_limit: 1 };
+    // ── Sinking: halving should never reduce stagger below 1 ──
+    if (nameLower === "sinking") {
+      const sce = item.system.scene_end_effect;
+      if (sce && (sce.min_resource_limit == null)) {
+        item.system.scene_end_effect = { ...sce, min_resource_limit: 1 };
+      }
+      const raw_pa = item.system.post_actives;
+      if (raw_pa) {
+        const pa_arr = Array.isArray(raw_pa) ? raw_pa : Object.values(raw_pa);
+        item.system.post_actives = pa_arr.map(pa => {
+          if (pa.operator === "sinking_deluge") return pa; // Deluge stays at 0
+          if (pa.min_resource_limit == null) return { ...pa, min_resource_limit: 1 };
+          return pa;
+        });
+      }
     }
 
-    // post_actives: set min_resource_limit = 1 for all non-deluge triggers
-    const raw_pa = item.system.post_actives;
-    if (raw_pa) {
-      const pa_arr = Array.isArray(raw_pa) ? raw_pa : Object.values(raw_pa);
-      item.system.post_actives = pa_arr.map(pa => {
-        if (pa.operator === "sinking_deluge") return pa; // Deluge stays at 0
-        if (pa.min_resource_limit == null) return { ...pa, min_resource_limit: 1 };
-        return pa;
-      });
+    // ── Thorns: default special_trigger and condition ──
+    if (nameLower === "thorns") {
+      if (!item.system.special_trigger) {
+        item.system.special_trigger = "on_receive_damage";
+      }
+      if (!item.system.condition) {
+        item.system.condition = "special";
+      }
     }
   }
 
@@ -1103,6 +1799,61 @@ Hooks.on("createActor", async (actor, options, userId) => {
 });
 
 Hooks.on("renderChatMessage", (message, html) => {
+
+  // ── Clash group card — collapse toggle ───────────────────────────────────
+  const toggle = html.find(".sotc-clash-toggle")[0];
+  if (toggle) {
+    const rows  = html.find(".sotc-clash-rows")[0];
+    const chev  = html.find(".sotc-clash-chevron")[0];
+    // Restore collapsed state from data attribute (set when card was updated)
+    if (rows?.dataset?.collapsed === "true") {
+      rows.style.display = "none";
+      if (chev) chev.style.transform = "rotate(-90deg)";
+    }
+    toggle.addEventListener("click", () => {
+      const collapsed = rows.style.display === "none";
+      rows.style.display = collapsed ? "" : "none";
+      if (chev) chev.style.transform = collapsed ? "" : "rotate(-90deg)";
+    });
+  }
+
+  // ── Initiative group card — collapse toggle ──────────────────────────────
+  const initToggle = html.find(".sotc-init-toggle")[0];
+  if (initToggle) {
+    const initRows = html.find(".sotc-init-rows")[0];
+    const initChev = html.find(".sotc-init-chevron")[0];
+    if (initRows?.dataset?.collapsed === "true") {
+      initRows.style.display = "none";
+      if (initChev) initChev.style.transform = "rotate(-90deg)";
+    }
+    initToggle.addEventListener("click", () => {
+      const collapsed = initRows.style.display === "none";
+      initRows.style.display = collapsed ? "" : "none";
+      if (initChev) initChev.style.transform = collapsed ? "" : "rotate(-90deg)";
+    });
+  }
+
+  // ── Safeguard yes/no buttons ──────────────────────────────────────────────
+  html.find(".sotc-safeguard-yes").on("click", async ev => {
+    ev.preventDefault();
+    const btn = ev.currentTarget;
+    const actorId     = btn.dataset.actorId;
+    const safeguardId = btn.dataset.safeguardId;
+    const sgCount     = Number(btn.dataset.sgCount);
+
+    const actor     = game.actors.get(actorId);
+    const safeguard = actor?.items.get(safeguardId);
+    if (safeguard) {
+      await safeguard.update({ "system.count": Math.max(0, sgCount - 1) });
+    }
+    try { await message.delete(); } catch(e) {}
+  });
+
+  html.find(".sotc-safeguard-no").on("click", async ev => {
+    ev.preventDefault();
+    try { await message.delete(); } catch(e) {}
+  });
+
   html.find(".reroll-die").on("click", async ev => {
     ev.preventDefault();
     const btn = ev.currentTarget;
@@ -1144,6 +1895,7 @@ Hooks.on("renderChatMessage", (message, html) => {
         dieType: type,
         total: roll.total,
         itemName: item_name,
+        formula: formula,
         isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(type),
         isDefensive: ["block","evade","counter-block","counter-evade"].includes(type),
         actorId: message.speaker?.actor ?? ChatMessage.getSpeaker()?.actor ?? null
@@ -1200,6 +1952,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   // But I kind of want to explode...
   html.find(".resolve-die").on("click", ev => {
     const payload = JSON.parse(ev.currentTarget.dataset.payload);
+    payload.sourceMessageId = message.id;
     openDamageWizard(payload); // token is resolved inside from game.user.targets
   });
 
@@ -1296,7 +2049,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             }
           },
           default: "apply"
-        }).render(true);
+        }).render({ force: true });
       });
     }
 
@@ -1398,25 +2151,16 @@ function applyAffinities(actor, dieBase, baseDmg, baseStagger) {
  *   staggerGain > 0  → restores stagger
  */
 async function applyStats(actor, { dmg = 0, stagger = 0, staggerGain = 0 } = {}) {
-  const updates = {};
+  if (!dmg && !stagger && !staggerGain) return;
 
-  if (dmg > 0) {
-    updates["system.health.value"] = (actor.system.health.value ?? 0) - dmg;
-  }
-  if (stagger > 0) {
-    const curr  = actor.system.stagger.value ?? 0;
-    const maxSt = actor.system.stagger.max   ?? curr;
-    updates["system.stagger.value"] = Math.max(0, Math.min(maxSt, curr - stagger));
-  }
-  if (staggerGain > 0) {
-    const curr  = actor.system.stagger.value ?? 0;
-    const maxSt = actor.system.stagger.max   ?? curr;
-    updates["system.stagger.value"] = Math.min(maxSt, curr + staggerGain);
-  }
+  // Send deltas — the receiver computes absolute values from fresh actor data,
+  // preventing stale-value bugs when the player's local copy is out of sync.
+  const delta = {};
+  if (dmg        > 0) delta.hp          = -dmg;
+  if (stagger    > 0) delta.stagger     = -stagger;
+  if (staggerGain > 0) delta.staggerGain = staggerGain;
 
-  if (Object.keys(updates).length) {
-    await game.sotc.updateActor(actor, updates);
-  }
+  await game.sotc.updateActor(actor, delta);
 }
 
 /**
@@ -1424,6 +2168,11 @@ async function applyStats(actor, { dmg = 0, stagger = 0, staggerGain = 0 } = {})
  * Opposing die type is chosen via one-click icon buttons (no dropdown).
  */
 async function openDamageWizard(payload) {
+  // Check permission — players need the setting enabled to use the wizard
+  if (!game.user.isGM && !game.settings.get("sotc", "playerDamageWizard")) {
+    return ui.notifications.warn("The Damage Wizard is currently restricted to the GM.");
+  }
+
   const targets = Array.from(game.user.targets);
   if (!targets.length) {
     return ui.notifications.warn("Select a target first!");
@@ -1482,6 +2231,47 @@ async function openDamageWizard(payload) {
   const INPUT_STYLE = `background:#f5f0e8; color:#1a1a1a; border:1px solid #8a7a5a; border-radius:4px; padding:5px 8px; width:100%; box-sizing:border-box; font-size:14px; margin-top:3px;`;
   const LABEL_STYLE = `display:block; font-weight:600; color:#c9a227; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; margin-top:10px;`;
 
+  // Detect Thorns on target and Bleed on attacker for conditional checkboxes.
+  // Build the HTML strings up-front (no nested template literals).
+  const _isOff = isOffensiveType(normaliseType(payload.dieType));
+  const _tActor = token.actor;
+  const _aActor = resolveAttackerActor(payload);
+  const _thornsItem = _isOff ? _tActor?.items.find(i =>
+    i.type === "status" && i.system?.condition === "special" &&
+    i.system?.special_trigger === "on_receive_damage" && Number(i.system?.count ?? 0) > 0
+  ) : null;
+  const _bleedItem = _isOff ? _aActor?.items.find(i =>
+    i.type === "status" && i.name.toLowerCase() === "bleed" && Number(i.system?.count ?? 0) > 0
+  ) : null;
+  const _thornCount = _thornsItem ? Number(_thornsItem.system.count) : 0;
+  const _bleedCount = _bleedItem  ? Number(_bleedItem.system.count)  : 0;
+
+  const critCheckboxHtml = _thornsItem ? [
+    '<label style="' + LABEL_STYLE + ' flex-direction:row; align-items:center; gap:8px; margin-top:10px;">',
+    '  <input type="checkbox" name="is_crit" style="width:16px; height:16px; cursor:pointer; margin:0;" />',
+    '  <span>Critical Hit',
+    '    <span style="font-weight:400; color:#888; font-size:10px;">',
+    '      <img src="' + (_thornsItem.img || 'systems/sotc/assets/statuses/Thorns.png') + '"',
+    '           style="width:12px;height:12px;border:none;object-fit:contain;vertical-align:middle;margin-right:2px;">',
+    '      doubles Thorns damage &mdash; target has ' + _thornCount + ' Thorns',
+    '    </span>',
+    '  </span>',
+    '</label>',
+  ].join("") : "";
+
+  const bleedCheckboxHtml = _bleedItem ? [
+    '<label style="' + LABEL_STYLE + ' flex-direction:row; align-items:center; gap:8px; margin-top:8px;">',
+    '  <input type="checkbox" name="suppress_bleed" style="width:16px; height:16px; cursor:pointer; margin:0;" />',
+    '  <span>Suppress Bleed',
+    '    <span style="font-weight:400; color:#888; font-size:10px;">',
+    '      <img src="systems/sotc/assets/statuses/Bleed.png"',
+    '           style="width:12px;height:12px;border:none;object-fit:contain;vertical-align:middle;margin-right:2px;">',
+    '      skip Bleed this attack &mdash; attacker has ' + _bleedCount + ' Bleed',
+    '    </span>',
+    '  </span>',
+    '</label>',
+  ].join("") : "";
+
   const content = `
     <style>
       .sotc-wizard-wrap { font-family:"Signika",sans-serif; padding:4px 2px; }
@@ -1520,6 +2310,8 @@ async function openDamageWizard(payload) {
           <input type="number" name="defender_die" value="0" min="0" style="${INPUT_STYLE}" />
           <span class="sotc-wizard-hint">Leave at 0 for Unopposed</span>
         </label>
+        ${critCheckboxHtml}
+        ${bleedCheckboxHtml}
       </div>
     </div>
   `;
@@ -1539,7 +2331,7 @@ async function openDamageWizard(payload) {
       }
     },
     default: "resolve"
-  }, { classes: ["sotc_damage_wizard"], width: 390 }).render(true);
+  }, { classes: ["sotc_damage_wizard"], width: 390 }).render({ force: true });
 }
 
 /**
@@ -1549,12 +2341,17 @@ async function openDamageWizard(payload) {
  * Both are updated via game.sotc.updateActor to support non-owned targets.
  */
 async function resolveDamage(payload, html, targetToken) {
-  // Re-fetch the token's actor at resolve-time so we always have live data,
-  // never a stale reference captured when the wizard was opened.
-  const targetActor = targetToken.actor;
+  // Re-check permission at resolve time in case setting changed mid-session
+  if (!game.user.isGM && !game.settings.get("sotc", "playerDamageWizard")) {
+    return ui.notifications.warn("The Damage Wizard is currently restricted to the GM.");
+  }
+
+  const targetActor  = targetToken.actor;
   const mod          = Number(html.find('[name="mod"]').val()                || 0);
   const defenderType =        html.find('[name="defender_die_type"]').val()  ?? "none";
   const defenderRoll = Number(html.find('[name="defender_die"]').val()       || 0);
+  const isCrit        =        html.find('[name="is_crit"]').prop("checked")       ?? false;
+  const suppressBleed =        html.find('[name="suppress_bleed"]').prop("checked") ?? false;
 
   const attackPower = payload.total + mod;
 
@@ -1569,8 +2366,8 @@ async function resolveDamage(payload, html, targetToken) {
   const isBlock        = dieBase === "block";
   const isEvade        = dieBase === "evade";
   const defIsOffensive = isOffensiveType(defenderType);
-  const defIsBlock     = defenderType === "block";
-  const defIsEvade     = defenderType === "evade";
+  const defIsBlock     = defenderType === "block" || defenderType === "counter-block";
+  const defIsEvade     = defenderType === "evade" || defenderType === "counter-evade";
 
   const attackerActor = resolveAttackerActor(payload);
 
@@ -1604,11 +2401,18 @@ async function resolveDamage(payload, html, targetToken) {
 
       case "tie": { resultLabel = "Clash Tie — no effect."; break; }
 
-      // The attacker lost — opposing offensive die hits them back
       case "lose": {
-        if (defIsOffensive && attackerActor) {
-          aDmg     = defenderRoll;
-          aStagger = defenderRoll;
+        if (defIsBlock) {
+          // Block [Clash Win]: STAGGER ONLY = block−offensive, NO HP
+          aStagger = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Clash Lose vs Block — ${targetActor.name}'s block dealt ${aStagger} stagger to ${attackerActor?.name ?? "attacker"} (no HP damage)`;
+        } else if (defIsEvade) {
+          // Evade [Win vs Offensive]: recycled, no stats
+          resultLabel = `Clash Lose vs Evade — ${targetActor.name}'s evade recycled! No damage. They may re-deploy it.`;
+        } else if (defIsOffensive && attackerActor) {
+          // Offensive vs offensive — apply affinities to attacker
+          const defBase = normaliseType(defenderType);
+          [aDmg, aStagger] = applyAffinities(attackerActor, defBase, defenderRoll, defenderRoll);
           resultLabel = `Clash Lose vs Offensive — ${attackerActor.name} takes ${aDmg} damage and ${aStagger} stagger`;
         } else {
           resultLabel = "Clash Lose — no effect.";
@@ -1641,28 +2445,23 @@ async function resolveDamage(payload, html, targetToken) {
 
       case "tie": { resultLabel = "Block Clash Tie — no effect."; break; }
 
-      // Block absorbed attackPower; remaining hits the block user
       case "lose": {
         if (defIsOffensive && attackerActor) {
-          aDmg     = Math.max(0, defenderRoll - attackPower);
-          aStagger = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Block Clash Lose — blocked ${attackPower}, ${attackerActor.name} takes net ${aDmg} damage and ${aStagger} stagger`;
-        } else if (defIsEvade && attackerActor) {
-          // Losing to evade: evader (target) regains net stagger
+          const defBase  = normaliseType(defenderType);
+          const netPower = Math.max(0, defenderRoll - attackPower);
+          [aDmg, aStagger] = applyAffinities(attackerActor, defBase, netPower, netPower);
+          resultLabel = `Block Clash Lose vs Offensive — blocked ${attackPower}, ${attackerActor.name} takes net ${aDmg} damage and ${aStagger} stagger`;
+        } else if (defIsEvade) {
+          // Evade [Win vs Defensive]: target regains stagger = evade−block
           tStaggerGain = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Block Clash Lose vs Evade — ${targetActor.name} regains ${tStaggerGain} stagger`;
-        } else if (defIsBlock && attackerActor) {
-          // Losing to block: attacker takes net stagger only
-          aStagger = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Block Clash Lose vs Block — ${attackerActor.name} takes net ${aStagger} stagger`;
+          resultLabel = `Block Clash Lose vs Evade — ${targetActor.name}'s evade wins, they regain ${tStaggerGain} stagger`;
         } else {
-          resultLabel = "Block Clash Lose — no special effect.";
+          resultLabel = "Block Clash Lose — no effect.";
         }
         break;
       }
 
       case "unopposed": {
-        await game.sotc.updateActor(targetToken.actor, {});
         await targetToken.actor.setFlag("sotc", "savedBlock", { power: attackPower, source: payload.itemName });
         resultLabel = `Block Unopposed — die saved for later this scene (power: ${attackPower})`;
         break;
@@ -1689,17 +2488,24 @@ async function resolveDamage(payload, html, targetToken) {
 
       case "tie": { resultLabel = "Evade Clash Tie — no effect."; break; }
 
-      // Evade softens the stagger; remainder still lands on the evade user
       case "lose": {
         if (defIsOffensive && attackerActor) {
-          aStagger    = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Evade Clash Lose vs Offensive — evade absorbed ${attackPower} stagger, ${attackerActor.name} takes net ${aStagger} stagger`;
-        } else if ((defIsBlock || defIsEvade) && attackerActor) {
-          // Losing to a defensive die: evader takes net stagger
-          aStagger    = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Evade Clash Lose vs Defensive — ${attackerActor.name} takes net ${aStagger} stagger`;
+          const defBase    = normaliseType(defenderType);
+          const netStagger = Math.max(0, defenderRoll - attackPower);
+          const [rawDmg]       = applyAffinities(attackerActor, defBase, defenderRoll, 0);
+          const [, affStagger] = applyAffinities(attackerActor, defBase, 0, netStagger);
+          aDmg     = rawDmg;
+          aStagger = affStagger;
+          resultLabel = `Evade Clash Lose vs Offensive — evade absorbed ${attackPower} stagger, ${attackerActor.name} takes ${aDmg} HP and ${aStagger} stagger`;
+        } else if (defIsBlock) {
+          // Evade loses vs Block: attacker (evader) takes stagger = block − evade
+          aStagger = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Evade Clash Lose vs Block — ${attackerActor?.name ?? "Evader"} takes ${aStagger} stagger`;
+        } else if (defIsEvade) {
+          tStaggerGain = Math.max(0, defenderRoll - attackPower);
+          resultLabel = `Evade Clash Lose vs Evade — ${targetActor.name}'s evade wins, they regain ${tStaggerGain} stagger`;
         } else {
-          resultLabel = "Evade Clash Lose — no special effect.";
+          resultLabel = "Evade Clash Lose — no effect.";
         }
         break;
       }
@@ -1741,8 +2547,73 @@ async function resolveDamage(payload, html, targetToken) {
     await applyStats(attackerActor, { dmg: aDmg, stagger: aStagger, staggerGain: aStaggerGain });
   }
 
+  // ── Bleed — fires when attacker uses an offensive die on win or unopposed ─
+  // Rule: take HP = Count, then reduce by 1. Can be suppressed per-attack.
+  const bleedStatLines = [];
+  if (isOffensive && !suppressBleed && (clashResult === "win" || clashResult === "unopposed") && attackerActor) {
+    const bleedStatus = attackerActor.items.find(i =>
+      i.type === "status" && i.name.toLowerCase() === "bleed" && Number(i.system?.count ?? 0) > 0
+    );
+    if (bleedStatus) {
+      const bleedDmg = Number(bleedStatus.system.count);
+      await applyStats(attackerActor, { dmg: bleedDmg });
+      await bleedStatus.update({ "system.count": Math.max(0, bleedDmg - 1) });
+      bleedStatLines.push(
+        '<span style="color:#c03030;display:flex;align-items:center;gap:4px;">' +
+        '<img src="systems/sotc/assets/statuses/Bleed.png" style="width:16px;height:16px;border:none;object-fit:contain;"> ' +
+        'Bleed ' + bleedDmg + ' HP \u2192 ' + attackerActor.name +
+        ' (Bleed ' + bleedDmg + '\u2192' + (bleedDmg - 1) + ')' +
+        '</span>'
+      );
+    }
+  }
+
+  // ── Thorns — fires when the target takes HP damage from an offensive die ──
+  // Rule: attacker loses HP = Thorns count. If Crit, damage is doubled.
+  // Thorns are cleared at scene end (handled by scene_end_effect.operator = "clear").
+  const thornsStatLines = [];
+  const shouldApplyThorns = tDmg > 0 && attackerActor && isOffensive;
+  if (shouldApplyThorns) {
+    const thornsStatuses = targetActor.items.filter(i =>
+      i.type === "status" &&
+      i.system?.condition === "special" &&
+      i.system?.special_trigger === "on_receive_damage" &&
+      Number(i.system?.count ?? 0) > 0
+    );
+    for (const thorns of thornsStatuses) {
+      let thornsDmg = Number(thorns.system.count);
+      if (isCrit) thornsDmg *= 2;
+      await applyStats(attackerActor, { dmg: thornsDmg });
+      thornsStatLines.push(
+        `<span style="color:#e07030;display:flex;align-items:center;gap:4px;"><img src="${thorns.img || 'systems/sotc/assets/statuses/Thorns.png'}" style="width:16px;height:16px;border:none;object-fit:contain;"> ${thorns.name} (${isCrit ? "CRIT × 2 = " + thornsDmg : thornsDmg}) HP → ${attackerActor.name}</span>`
+      );
+    }
+  }
+
+  // ── Emotion Points — every qualifying actor in the clash gains 1 EP ───────
+  // Unopposed is not a clash, so no EP awarded.
+  const epStatLines = [];
+  if (clashResult !== "unopposed") {
+    const enemyEpEnabled = game.settings.get("sotc", "enemyEmotionPoints");
+    const epActors = [targetActor, attackerActor].filter(a => {
+      if (!a) return false;
+      if (a.system?.initiative_type === "player") return true;
+      return enemyEpEnabled;
+    });
+    for (const a of epActors) {
+      const currentEp = Number(a.system.emotion ?? 0);
+      const maxEp     = Number(a.system.emotion_max ?? a.system.emotionMax ?? 99);
+      const newEp     = Math.min(maxEp, currentEp + 1);
+      if (newEp > currentEp) {
+        await game.sotc.updateActor(a, { emotion: newEp - currentEp });
+        epStatLines.push(`<span style="color:#c9a227;">+1 EP → ${a.name}</span>`);
+      }
+    }
+  }
+
   // ── Chat result message ───────────────────────────────────────────────────
   const clashLabel = { win: "Clash Win", tie: "Clash Tie", lose: "Clash Lose", unopposed: "Unopposed" }[clashResult];
+  const clashColor = { win: "#4caf7d", tie: "#c9a227", lose: "#e05050", unopposed: "#aaa" }[clashResult];
 
   const statLines = [];
   if (tDmg        > 0) statLines.push(`<span style="color:#e05050;">${tDmg} HP → ${targetActor.name}</span>`);
@@ -1751,36 +2622,82 @@ async function resolveDamage(payload, html, targetToken) {
   if (aDmg        > 0) statLines.push(`<span style="color:#e05050;">${aDmg} HP → ${attackerActor?.name}</span>`);
   if (aStagger    > 0) statLines.push(`<span style="color:#e0943a;">${aStagger} stagger → ${attackerActor?.name}</span>`);
   if (aStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">+${aStaggerGain} stagger regained by ${attackerActor?.name}</span>`);
+  statLines.push(...epStatLines);
+  statLines.push(...bleedStatLines);
+  statLines.push(...thornsStatLines);
 
-  // Encode snapshot into the undo button so any client can trigger it
   const snapshotJson = JSON.stringify(snapshot).replace(/'/g, "&#39;");
-  const hasEffect = tDmg || tStagger || tStaggerGain || aDmg || aStagger || aStaggerGain;
+  const hasEffect = tDmg || tStagger || tStaggerGain || aDmg || aStagger || aStaggerGain || thornsStatLines.length;
 
-  const msgContent = `
-    <div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif; line-height:1.6;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <strong style="color:#e8d9a0; font-size:14px;">${payload.itemName}</strong>
+  // ── Build a self-contained row for this die resolution ──────────────────
+  // Build compact stat summary for the always-visible summary bar
+  const previewStats = [];
+  if (tDmg > 0)         previewStats.push(`<span style="color:#e05050;">${tDmg} HP</span>`);
+  if (tStagger > 0)     previewStats.push(`<span style="color:#e0943a;">${tStagger} stagger</span>`);
+  if (aDmg > 0)         previewStats.push(`<span style="color:#e05050;">${aDmg} HP → ${attackerActor?.name}</span>`);
+  if (aStagger > 0)     previewStats.push(`<span style="color:#e0943a;">${aStagger} stagger → ${attackerActor?.name}</span>`);
+  if (tStaggerGain > 0) previewStats.push(`<span style="color:#4caf7d;">+${tStaggerGain} stagger back</span>`);
+  if (aStaggerGain > 0) previewStats.push(`<span style="color:#4caf7d;">+${aStaggerGain} stagger back</span>`);
+
+  const previewPill = `
+    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+      <span style="background:#1a1a2a; color:${clashColor}; border:1px solid #3a3050; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:700;">${payload.dieType} → ${attackPower} · ${clashLabel}</span>
+      ${previewStats.length ? `<span style="font-size:11px; color:#aaa;">${previewStats.join('<span style="color:#555;"> · </span>')}</span>` : ""}
+    </div>`;
+
+  const dieRow = `
+    <div class="sotc-clash-row" style="border-top:1px solid #2a2540; padding:7px 0 4px; margin-top:4px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
         <span style="background:#2a2040; color:#c9a227; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:700;">${payload.dieType} → ${attackPower}</span>
+        <span style="font-size:11px; font-weight:700; color:${clashColor};">${clashLabel}</span>
       </div>
-      <div style="color:#aaa; font-size:12px; margin-bottom:6px;">
-        Target: <strong style="color:#ddd;">${targetActor.name}</strong>
-        &nbsp;·&nbsp;
-        <strong style="color:#c9a227;">${clashLabel}</strong>
-      </div>
-      <div style="border-top:1px solid #3a3050; padding-top:6px; font-size:13px; color:#ccc;">
-        ${resultLabel}
-      </div>
-      ${statLines.length ? `<div style="margin-top:6px; display:flex; flex-direction:column; gap:2px; font-size:13px;">${statLines.join("")}</div>` : ""}
+      <div style="font-size:12px; color:#ccc; margin-bottom:3px;">${resultLabel}</div>
+      ${statLines.length ? `<div style="display:flex; flex-direction:column; gap:1px; font-size:12px;">${statLines.join("")}</div>` : ""}
       ${hasEffect ? `
-      <div style="margin-top:8px; border-top:1px solid #3a3050; padding-top:6px;">
-        <a class="sotc-undo-damage"
-           data-snapshot='${snapshotJson}'
-           style="display:inline-flex; align-items:center; gap:5px; background:#2a1a1a; border:1px solid #6b2a2a; border-radius:4px; padding:3px 10px; font-size:11px; font-weight:700; color:#e07070; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer; text-decoration:none;">
+        <a class="sotc-undo-damage" data-snapshot='${snapshotJson}'
+           style="display:inline-flex; align-items:center; gap:5px; background:#2a1a1a; border:1px solid #6b2a2a; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; color:#e07070; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer; text-decoration:none; margin-top:4px;">
           <i class="fas fa-rotate-left"></i> Undo
-        </a>
-      </div>` : ""}
-    </div>
-  `;
+        </a>` : ""}
+    </div>`;
 
-  await ChatMessage.create({ speaker: ChatMessage.getSpeaker(), content: msgContent });
+  // ── Merge into existing clash group card or create a new one ────────────
+  const sourceId = payload.sourceMessageId;
+  const existing = sourceId
+    ? game.messages.find(m => m.getFlag("sotc", "clashGroup") === sourceId)
+    : null;
+
+  if (existing) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(existing.content, "text/html");
+    const container = doc.querySelector(".sotc-clash-rows");
+    const summary = doc.querySelector(".sotc-clash-summary");
+    if (container) {
+      container.insertAdjacentHTML("beforeend", dieRow);
+      // Update summary bar to show latest clash result
+      if (summary) summary.innerHTML = previewPill;
+      // Collapse after appending so chat stays compact
+      container.dataset.collapsed = "true";
+      container.style.display = "none";
+      await existing.update({ content: doc.body.innerHTML });
+    }
+  } else {
+    // First resolution — create the grouped card (starts expanded)
+    const headerContent = `
+      <div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif; line-height:1.6;">
+        <div class="sotc-clash-toggle" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; cursor:pointer; user-select:none;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <i class="fas fa-chevron-down sotc-clash-chevron" style="font-size:10px; color:#888; transition:transform 0.15s;"></i>
+            <strong style="color:#e8d9a0; font-size:14px;">${payload.itemName}</strong>
+          </div>
+          <span style="color:#aaa; font-size:11px;">vs ${targetActor.name}</span>
+        </div>
+        <div class="sotc-clash-summary" style="margin-bottom:4px;">${previewPill}</div>
+        <div class="sotc-clash-rows" data-collapsed="false">${dieRow}</div>
+      </div>`;
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker(),
+      content: headerContent,
+      flags: { sotc: { clashGroup: sourceId ?? foundry.utils.randomID() } }
+    });
+  }
 }
