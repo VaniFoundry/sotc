@@ -1,11 +1,12 @@
 import { EntitySheetHelper, enrichModWithStatusIcons } from "./helper.js";
+import { SotCStatusSheet } from "./status-sheet.js";
 import {ATTRIBUTE_TYPES} from "./constants.js";
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
  */
-export class SotCActorSheet extends ActorSheet {
+export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
 
   /** @inheritdoc */
   static get defaultOptions() {
@@ -56,6 +57,8 @@ export class SotCActorSheet extends ActorSheet {
   /** @inheritdoc */
   activateListeners(html) {
     super.activateListeners(html);
+    // Foundry v13 passes an HTMLElement; wrap in jQuery for backward-compatible .find()
+    html = $(html);
 
     // Everything below here is only needed if the sheet is editable
     if ( !this.isEditable ) return;
@@ -172,7 +175,7 @@ export class SotCActorSheet extends ActorSheet {
 
     // Open up the sheet for the skill/ego that is being edited
     if (button.classList.contains("edit-skill_card")) {
-      return item.sheet.render(true);
+      return item.sheet.render({ force: true });
     }
 
     // This function is also meant to let you move your skills to the back of the list, for reorganizing since we currently can't drag them around
@@ -386,7 +389,7 @@ export class SotCActorSheet extends ActorSheet {
                 formulaForDisplay = `${numDice}d${dieSize} + ${baseMod}${formulaForDisplay}`;
               }
 
-              results.push({die, roll, formulaForDisplay, mod, status_mod});
+              results.push({die, dieIndex: i, roll, formulaForDisplay, mod, status_mod});
             }
 
             // Optional info: weight, modules
@@ -407,7 +410,7 @@ export class SotCActorSheet extends ActorSheet {
             const skillModulesAfterLine = skillModulesAfter.length ? `<div class="skill-modules skill-modules-after">${renderModLines(skillModulesAfter)}</div>` : "";
 
             // Dice display
-            const diceSummaries = results.map(({ die, roll, formulaForDisplay, mod, status_mod }) => {
+            const diceSummaries = results.map(({ die, dieIndex, roll, formulaForDisplay, mod, status_mod }) => {
               const icon = `systems/sotc/assets/dice types/${die.type}.png`;
               const colorClass = `die-color-${die.type}`;
               const modules = Object.values(die.mods ?? {});
@@ -416,6 +419,7 @@ export class SotCActorSheet extends ActorSheet {
                 : "";
               const payload = {
                 dieType: die.type,
+                dieIndex: dieIndex,
                 total: roll.total,
                 actorId: this.actor.id,
                 itemId: item.id,
@@ -668,6 +672,7 @@ export class SotCActorSheet extends ActorSheet {
 
             const payload = {
               dieType: die.type,
+              dieIndex: i,
               total: roll.total,
               actorId: this.actor.id,
               itemId: item.id,
@@ -723,12 +728,12 @@ export class SotCActorSheet extends ActorSheet {
       }
     }, {
       classes: ["sotc_skill_roll_dialog"]  // allows our custom black background styling
-    }).render(true);
+    }).render({ force: true });
   }
   /* -------------------------------------------- */
   // Controls for our status buttons, basically just like the above with a modification for the status cards because the html formatting ain't vibing
 
-  _onStatusControl(event) {
+  async _onStatusControl(event) {
     event.preventDefault();
     const button = event.currentTarget;
     const card = button.closest(".status_card");
@@ -755,7 +760,8 @@ export class SotCActorSheet extends ActorSheet {
     }
 
     if (button.classList.contains("edit-status_card")) {
-      return item.sheet.render(true);
+      item.sheet.render({ force: true });
+      return;
     }
 
     if (button.classList.contains("print-status_card")) {
@@ -901,7 +907,7 @@ export class SotCActorSheet extends ActorSheet {
     }
 
     if (button.classList.contains("edit-passive_card")) {
-      return item.sheet.render(true);
+      return item.sheet.render({ force: true });
     }
 
     if (button.classList.contains("duplicate-passive_card")) {
@@ -1080,7 +1086,7 @@ export class SotCActorSheet extends ActorSheet {
       default: "roll"
     }, {
       classes: ["sotc_attribute_roll_dialog"]  // allows our custom black background styling
-    }).render(true);
+    }).render({ force: true });
     
   }
 
