@@ -5,7 +5,7 @@ import {ATTRIBUTE_TYPES} from "./constants.js";
  * Extend the basic ItemSheet with some very simple modifications
  * @extends {ItemSheet}
  */
-export class SotCStatusSheet extends ItemSheet {
+export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
 
   /** @inheritdoc */
   static get defaultOptions() {
@@ -22,17 +22,29 @@ export class SotCStatusSheet extends ItemSheet {
   /** @inheritdoc */
   async getData(options) {
     const context = await super.getData(options);
-    if (context.data.img === "icons/svg/item-bag.svg") {
-      context.data.img = "systems/sotc/assets/statuses/Default.png";
+
+    // Foundry v13: ItemSheet.getData() no longer guarantees context.data exists.
+    // Fall back to this.item for img and system data.
+    const itemData = context.data ?? this.item;
+    if (itemData.img === "icons/svg/item-bag.svg") {
+      itemData.img = "systems/sotc/assets/statuses/Default.png";
     }
-    EntitySheetHelper.getAttributeData(context.data);
-    context.systemData = context.data.system;
+
+    // Status items have no system.attributes — do NOT call EntitySheetHelper.getAttributeData()
+    // here, it throws "Cannot read properties of undefined (reading 'attributes')" and
+    // silently aborts getData(), preventing the sheet from opening.
+
+    context.systemData = itemData.system ?? this.item.system ?? {};
     context.sheetEditMode = this.item.getFlag("sotc", "sheetEditMode") || false;
     context.dtypes = ATTRIBUTE_TYPES;
-    context.descriptionHTML = await TextEditor.enrichHTML(context.systemData.description, {
-      secrets: this.document.isOwner,
-      async: true
-    });
+    try {
+      context.descriptionHTML = await TextEditor.enrichHTML(context.systemData.description ?? "", {
+        secrets: this.document.isOwner,
+        async: true
+      });
+    } catch (e) {
+      context.descriptionHTML = context.systemData.description ?? "";
+    }
 
     // Ensure min_resource_limit is always present on every trigger entry so the
     // template can render an input for it without undefined-related issues.
@@ -41,12 +53,12 @@ export class SotCStatusSheet extends ItemSheet {
     const normaliseMinLimit = (raw) => {
       const arr = Array.isArray(raw) ? raw : Object.values(raw ?? {});
       return arr.map(entry => ({
-        min_resource_limit: 0,   // safe fallback — overridden by stored value below
+        min_resource_limit: 0,
         ...entry
       }));
     };
 
-    context.post_actives_normalised  = normaliseMinLimit(context.systemData.post_actives);
+    context.post_actives_normalised = normaliseMinLimit(context.systemData.post_actives);
     context.scene_end_effect_normalised = {
       ...context.systemData.scene_end_effect,
       min_resource_limit: context.systemData.scene_end_effect?.min_resource_limit ?? 0
@@ -60,9 +72,10 @@ export class SotCStatusSheet extends ItemSheet {
   /** @inheritdoc */
   activateListeners(html) {
     super.activateListeners(html);
+    // Foundry v13 passes a raw HTMLElement instead of jQuery; wrap so .find() works.
+    html = $(html);
     html.find(".post_actives-control").click(this._onActivesControl.bind(this));
     html.find(".stagger_effects-control").click(this._onStaggerControl.bind(this));
-
     html.find(".print-status_card").click(this._printStatus.bind(this));
   }
 
@@ -76,23 +89,21 @@ export class SotCStatusSheet extends ItemSheet {
     const name = status.name;
     const icon = status.img ? `<img src="${status.img}" width="auto" height="32px" style="vertical-align: middle; margin-right: 4px; border: none;">` : "";
     let type = s.types || "other";
-    const first_letter = type.charAt(0)
-    const remaining_letters = type.substring(1)
-    type = first_letter.toUpperCase() + remaining_letters
+    const first_letter = type.charAt(0);
+    const remaining_letters = type.substring(1);
+    type = first_letter.toUpperCase() + remaining_letters;
     const condition = s.condition || "";
     const potencyFlat = s.potency_flat ?? 0;
     const potency = s.potency ?? 0;
     const effect = s.effect || "";
     let target = s.target || "";
-    if (target === "hp") {
-      target = "HP"
-    }
+    if (target === "hp") target = "HP";
     const special = s.special?.trim();
 
     let message = "";
-    let flat_message = ``
+    let flat_message = "";
     if (potencyFlat) {
-      flat_message = `by <b>${potencyFlat}</b> flat, and`
+      flat_message = `by <b>${potencyFlat}</b> flat, and`;
     }
 
     switch (condition) {
@@ -137,7 +148,7 @@ export class SotCStatusSheet extends ItemSheet {
             <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
             <p><b>Type:</b> ${type}</p>
             <b>Description:</b>
-            "<p><i>stagger_like effects don't have description support yet. Sorry!</i></p>"}
+            <p><i>Stagger-like effects don't have description support yet.</i></p>
           </div>
         `;
         break;
@@ -152,31 +163,26 @@ export class SotCStatusSheet extends ItemSheet {
         break;
     }
 
-    // Post to chat
     ChatMessage.create({
       user: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
       content: message,
     });
   }
-  
+
   async _onActivesControl(event) {
     event.preventDefault();
     const a = event.currentTarget;
     const raw_post_actives = this.item.system.post_actives;
     const post_actives_array = Array.isArray(raw_post_actives) ? raw_post_actives : Object.values(raw_post_actives);
 
-    // Add new post active control button option thing <- words uttered by the deranged
-    if ( a.classList.contains("add-option") ) {
+    if (a.classList.contains("add-option")) {
       await this._onSubmit(event);
-      // Default min_resource_limit is 0 for new triggers on all statuses.
-      // Sinking's value of 1 is set at actor-creation time via the createActor hook.
       const updated_post_array = [...post_actives_array, { operator: "maintain", variable: 0, min_resource_limit: 0 }];
       return this.item.update({ "system.post_actives": updated_post_array });
     }
 
-    // Remove a post active control button option thing
-    if ( a.classList.contains("remove-option") ) {
+    if (a.classList.contains("remove-option")) {
       await this._onSubmit(event);
       const li = a.closest(".post_effect_contents");
       const index = Number(li.dataset.postActive);
@@ -186,21 +192,19 @@ export class SotCStatusSheet extends ItemSheet {
     }
   }
 
-    async _onStaggerControl(event) {
+  async _onStaggerControl(event) {
     event.preventDefault();
     const a = event.currentTarget;
     const raw_stagger_effects = this.item.system.stagger_effects;
     const stagger_effects_array = Array.isArray(raw_stagger_effects) ? raw_stagger_effects : Object.values(raw_stagger_effects);
 
-    // Add new stagger effect trigger — min_resource_limit defaults to 0.
-    if ( a.classList.contains("add-option") ) {
+    if (a.classList.contains("add-option")) {
       await this._onSubmit(event);
       const updated_post_array = [...stagger_effects_array, { operator: "maintain", variable: 0, min_resource_limit: 0 }];
       return this.item.update({ "system.stagger_effects": updated_post_array });
     }
 
-    // Remove a stagger effect trigger
-    if ( a.classList.contains("remove-option") ) {
+    if (a.classList.contains("remove-option")) {
       await this._onSubmit(event);
       const li = a.closest(".stagger_effect_contents");
       const index = Number(li.dataset.postActive);
