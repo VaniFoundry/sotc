@@ -24,6 +24,7 @@
   "styles": [
     "styles/sotc.css"
   ],
+  "socket": true,
   "packs": [
     {
       "name": "default-statuses",
