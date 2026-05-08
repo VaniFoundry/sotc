@@ -5,7 +5,7 @@ import {ATTRIBUTE_TYPES} from "./constants.js";
  * Extend the basic ItemSheet with some very simple modifications
  * @extends {ItemSheet}
  */
-export class SotCSkillSheet extends ItemSheet {
+export class SotCSkillSheet extends foundry.appv1.sheets.ItemSheet {
 
   /** @inheritdoc */
   static get defaultOptions() {
@@ -265,6 +265,23 @@ async _onRollSkillDie(event) {
                   data-itemname="${this.item.name}"
                   style="width: 16px; height: 16px; color: black; margin-top: 4px; margin-left: 8px;">
                   <i class="fas fa-rotate-left"></i>
+                </a>
+                <a class="resolve-die"
+                  title="Apply Die!"
+                  data-payload='${JSON.stringify({
+                    dieType: die.type,
+                    total: roll.total,
+                    itemName: this.item.name,
+                    formula: die.formula,
+                    itemId: this.item.id,
+                    dieIndex: index,
+                    isOffensive: ["slash","pierce","blunt","counter-slash","counter-pierce","counter-blunt"].includes(die.type),
+                    isDefensive: ["block","evade","counter-block","counter-evade"].includes(die.type),
+                    actorId: this.actor?.id ?? null,
+                    tokenId: this.token?.id ?? this.actor?.token?.id ?? null
+                  })}'
+                  style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                  <i class="fas fa-bolt"></i>
                 </a>
             </div>
           </span>
