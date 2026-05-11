@@ -2,9 +2,9 @@
   "id": "sotc",
   "title": "Stars of the City",
   "description": "A system for playing Stars of the City, a Project Moon inspired TTRPG by Jakkafang and community.",
-  "url": "https://github.com/tsu-b-asa/sotc",
-  "manifest": "https://raw.githubusercontent.com/tsu-b-asa/sotc/master/system.json",
-  "download": "https://github.com/tsu-b-asa/sotc/releases/download/version-1.05/sotc-version-1.05.zip",
+  "url": "https://github.com/VaniFoundry/sotc",
+  "manifest": "https://raw.githubusercontent.com/VaniFoundry/sotc/master/system.json",
+  "download": "https://github.com/VaniFoundry/sotc/releases/download/v1.0.2/sotc.zip",
   "authors": [
     {
       "name": "Tsubasa",
@@ -12,7 +12,7 @@
       "flags": {}
     }
   ],
-  "version": 1.05,
+  "version": "1.0.2",
   "compatibility": {
     "minimum": 11,
     "verified": "11.315"
