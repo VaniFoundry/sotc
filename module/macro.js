@@ -29,21 +29,21 @@ export class SOTCHotbar {
     const command = `
 const token = canvas.tokens.controlled[0];
 if (!token) {
-  ui.notifications.warn("Please select a token to roll this skill.");
+  ui.notifications.warn(game.i18n.localize("SOTC.NotifyMacroSelectToken"));
   return;
 }
 
 const actor = token.actor;
 const item = actor.items.get("${item.id}");
 if (!item) {
-  ui.notifications.error("Selected actor does not have this skill.");
+  ui.notifications.error(game.i18n.localize("SOTC.NotifyMacroNoSkill"));
   return;
 }
 
 // Fabricate a fake click event for your existing handler
 const sheet = actor.sheet;
 if (!sheet || !sheet._onRollFullSkill) {
-  ui.notifications.error("Actor sheet is not ready.");
+  ui.notifications.error(game.i18n.localize("SOTC.NotifyMacroSheetNotReady"));
   return;
 }
 

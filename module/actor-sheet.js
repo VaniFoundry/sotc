@@ -188,8 +188,8 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     // I should probably add a dialog option that gives a warning or requests a confirmation. Missclicking this would suck major major
     if (button.classList.contains("delete-skill_card")) {
       return Dialog.confirm({
-        title: "Delete Status?",
-        content: `<p>Are you sure you want to delete <strong>${item.name}</strong>?</p>`,
+        title: game.i18n.localize("SOTC.DeleteItemTitle"),
+        content: `<p>${game.i18n.format("SOTC.DeleteItemContent", {name: item.name})}</p>`,
         yes: () => item.delete(),
         no: () => {},
         defaultYes: false,
@@ -207,14 +207,14 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     const item = this.actor.items.get(itemId);
 
     if (!item) {
-      return ui.notifications.warn("Oh buddy, I don't know if this is worse than the other error. Your item is missing??? Tell me about it...");
+      return ui.notifications.warn(game.i18n.localize("SOTC.NotifyItemMissing"));
     }
     // I fucked up somewhere along the line and have violated our template.json structure
     // So now we end up with an object storing our die instead of an array. I'll surely come back and fix this at some point, right? Haha.
     const diceObject = item.system.dice?.die ?? {};
     const diceArray = Array.isArray(diceObject) ? diceObject : Object.values(diceObject);
     if (!diceArray) {
-      return ui.notifications.warn("WHAT ARE YOU DOING!!! Your skill has no dice array!!! How'd you even manage that!!! Tell me about it...");
+      return ui.notifications.warn(game.i18n.localize("SOTC.NotifySkillNoDice"));
     }
 
     // Prepare dialog content
@@ -225,12 +225,12 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     // There's a good chance that I could cut down on this, but right now it looks pretty good and works pretty well
     // Note that the individual rolls, as in item-sheet.js do not have any dialog box
     new Dialog({
-      title: `Roll Skill: ${item.name}`,
+      title: game.i18n.format("SOTC.RollSkillTitle", {name: item.name}),
       content: dialogContent,
       buttons: {
         declare: {
           icon: '<i class="fas fa-exclamation-circle"></i>',
-          label: "Reveal",
+          label: game.i18n.localize("SOTC.ButtonReveal"),
           callback: async html => {
             const diceArray = item.system.dice?.die ?? {};
             const dice = Array.isArray(diceArray) ? diceArray : Object.values(diceArray);
@@ -238,9 +238,9 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
             // Optional sections based on conditions
             const skillModules = item.system.skill_modules?.mods;
             const light_cost = item.system.light_cost;
-            const light_costLine = `<p><strong>Light Cost:</strong> ${light_cost}</p>`;
+            const light_costLine = `<p><strong>${game.i18n.localize("SOTC.RollSkillLightCost")}</strong> ${light_cost}</p>`;
             const weight = item.system.weight;
-            const weightLine = weight > 1 ? `<p><strong>Attack Weight:</strong> ${weight}</p>` : "";
+            const weightLine = weight > 1 ? `<p><strong>${game.i18n.localize("SOTC.RollSkillAttackWeight")}</strong> ${weight}</p>` : "";
             const skillModulesArray = Array.isArray(skillModules)
               ? skillModules
               : (typeof skillModules === "string" ? skillModules.split("\n").map(s => s.trim()).filter(Boolean) : []);
@@ -278,7 +278,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                 ${light_costLine}
                 ${weightLine}
                 ${skillModulesLine}
-                <p><strong>Dice:</strong></p>
+                <p><strong>${game.i18n.localize("SOTC.RollSkillDice")}</strong></p>
                 ${diceSummaries}
                 ${skillModulesAfterLine}
               </div>
@@ -293,7 +293,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
         },
         roll: {
           icon: '<i class="fas fa-dice"></i>',
-          label: "Roll",
+          label: game.i18n.localize("SOTC.ButtonRoll"),
           callback: async html => {
             const diceArray = item.system.dice?.die ?? {};
             const dice = Array.isArray(diceArray) ? diceArray : Object.values(diceArray);
@@ -314,7 +314,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                 results.push({
                   die,
                   isError: true,
-                  message: `Invalid formula: <code>${die.formula}</code>. Must be of the format XdY+Z`
+                  message: game.i18n.format("SOTC.NotifyInvalidFormulaFormat", {formula: die.formula})
                 });
                 continue;
               }
@@ -375,12 +375,12 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                 // Stylistically show the paralysis or poise when its rolled.
                 roll = await new Roll(`${total}`).roll({ async: true });
                 formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
-                formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Paralyze.png" title="Paralyze" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
+                formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Paralyze.png" title="${game.i18n.localize("SOTC.RollDialogParalysis")}" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
               } else if (poise) {
                 let total = numDice * dieSize + baseMod + mod + status_mod;
                 roll = await new Roll(`${total}`).roll({ async: true });
                 formulaForDisplay = `${formulaForDisplay} = ${roll.total}`;
-                formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Poise.png" title="Poise" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
+                formulaForDisplay = `<div style="display: flex;"><img src="systems/sotc/assets/statuses/Poise.png" title="${game.i18n.localize("SOTC.RollDialogPoise")}" style="height: 20px; width: 20px; vertical-align: middle; margin-right: 3px; border: none; filter: drop-shadow(1px 1px 2px black)">(${numDice}d${dieSize}) + ${baseMod}${formulaForDisplay}</div>`;
               } else {
                 let formula = `${numDice}d${dieSize} + ${baseMod} + ${mod} + ${status_mod}`;
                 // I've had it suggested that maybe this shouldn't be shown at all. I might take that into consideration eventually
@@ -395,11 +395,11 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
             // Optional info: weight, modules
             const skillModules = item.system.skill_modules?.mods;
             const light_cost = item.system.light_cost;
-            const light_costLine = `<p><strong>Light Cost:</strong> ${light_cost}</p>`;
+            const light_costLine = `<p><strong>${game.i18n.localize("SOTC.RollSkillLightCost")}</strong> ${light_cost}</p>`;
 
             const weight = item.system.weight;
 
-            const weightLine = weight > 1 ? `<p><strong>Attack Weight:</strong> ${weight}</p>` : "";
+            const weightLine = weight > 1 ? `<p><strong>${game.i18n.localize("SOTC.RollSkillAttackWeight")}</strong> ${weight}</p>` : "";
             const skillModulesArray = Array.isArray(skillModules)
               ? skillModules
               : (typeof skillModules === "string" ? skillModules.split("\n").map(s => s.trim()).filter(Boolean) : []);
@@ -434,7 +434,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                     <div style="display: flex; gap: 4px;">
                       <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
                       <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${formulaForDisplay}</strong>
-                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll die!"
+                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="${game.i18n.localize("SOTC.RollSkillRerollDie")}"
                         data-actor-id="${this.actor.id}"
                         data-formula="${die.formula}"
                         data-mod="${mod}"
@@ -447,7 +447,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                         <i class="fas fa-rotate-left"></i>
                       </a>
                       <a class="resolve-die"
-                        title="Apply Die!"
+                        title="${game.i18n.localize("SOTC.RollSkillApplyDie")}"
                         data-payload='${JSON.stringify(payload)}'
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-bolt"></i>
@@ -465,12 +465,12 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                 ${light_costLine}
                 ${weightLine}
                 ${skillModulesLine}
-                <p><strong>Dice Rolled:</strong></p>
+                <p><strong>${game.i18n.localize("SOTC.RollSkillDiceRolled")}</strong></p>
                 ${diceSummaries}
                 ${skillModulesAfterLine}
                 <hr>
                 <a class="toggle-roll-details" style="cursor: pointer; font-size: 12px; color: #888;">
-                  ⯈ Show Roll Details
+                  ${game.i18n.localize("SOTC.RollSkillShowDetails")}
                 </a>
               </div>
             `;
@@ -489,7 +489,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                 toggleLink.on("click", () => {
                   const wasHidden = html.find(".roll-details-wrapper").is(":hidden");
                   html.find(".roll-details-wrapper").toggle();
-                  toggleLink.html(wasHidden ? "⯆ Hide Roll Details" : "⯈ Show Roll Details");
+                  toggleLink.html(wasHidden ? game.i18n.localize("SOTC.RollSkillHideDetails") : game.i18n.localize("SOTC.RollSkillShowDetails"));
                   toggleLink.toggleClass("open", wasHidden);
                 });
               }
@@ -542,7 +542,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
         },
         cancel: {
           icon: '<i class="fas fa-times"></i>',
-          label: "Cancel"
+          label: game.i18n.localize("SOTC.ButtonCancel")
         }
       },
       default: "declare",
@@ -595,7 +595,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
             // parse formula
             const match = die.formula.match(/^\s*(\d+)\s*d\s*(\d+)((?:\s*[+-]\s*\d+)*)\s*$/);
             if (!match) {
-              return ui.notifications.error(`Invalid formula: ${die.formula}`);
+              return ui.notifications.error(game.i18n.format("SOTC.NotifyInvalidFormula", {formula: die.formula}));
             }
 
             const numDice = parseInt(match[1]);
@@ -691,7 +691,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                     <div style="display: flex; gap: 4px;">
                       <img src="${icon}" alt="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
                       <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${formulaForDisplay}</strong>
-                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll this die"
+                      <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="${game.i18n.localize("SOTC.RollSkillRerollDie")}"
                         data-actor-id="${this.actor.id}"
                         data-formula="${die.formula}"
                         data-mod=${mod}
@@ -704,7 +704,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                         <i class="fas fa-rotate-left"></i>
                       </a>
                       <a class="resolve-die"
-                        title="Apply Die!"
+                        title="${game.i18n.localize("SOTC.RollSkillApplyDie")}"
                         data-payload='${JSON.stringify(payload)}'
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-bolt"></i>
@@ -769,7 +769,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
       if (sheet && typeof sheet._printStatus === "function") {
         return sheet._printStatus(event);
       }
-      ui.notifications.warn("This status does not have a printable sheet.");
+      ui.notifications.warn(game.i18n.localize("SOTC.NotifyStatusNotPrintable"));
       return;
     }
 
@@ -781,8 +781,8 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
 
     if (button.classList.contains("delete-status_card")) {
       return Dialog.confirm({
-        title: "Delete Status?",
-        content: `<p>Are you sure you want to delete <strong>${item.name}</strong>?</p>`,
+        title: game.i18n.localize("SOTC.DeleteItemTitle"),
+        content: `<p>${game.i18n.format("SOTC.DeleteItemContent", {name: item.name})}</p>`,
         yes: () => item.delete(),
         no: () => {},
         defaultYes: false,
@@ -918,8 +918,8 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
 
     if (button.classList.contains("delete-passive_card")) {
       return Dialog.confirm({
-        title: "Delete Status?",
-        content: `<p>Are you sure you want to delete <strong>${item.name}</strong>?</p>`,
+        title: game.i18n.localize("SOTC.DeleteItemTitle"),
+        content: `<p>${game.i18n.format("SOTC.DeleteItemContent", {name: item.name})}</p>`,
         yes: () => item.delete(),
         no: () => {},
         defaultYes: false,
@@ -1045,14 +1045,15 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     event.preventDefault();
     const actor = this.actor;
     const attribute = getProperty(actor.system, `attribute.${attribute_key}.value`) || 0;
+    const attributeLabel = game.i18n.localize(`SOTC.Attribute${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)}`);
 
     // Build dialog HTML
     const content = `
       <form class="test_dialog" style="background-color: black; color: #efc281; padding: 0px;">
         <div class="test_dialog_box" style="padding: 8px;">
-          <h3>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h3>
+          <h3>${game.i18n.format("SOTC.AttributeAttempt", {attribute: attributeLabel})}</h3>
           <div style="text-align: center; margin-top: 8px; display: flex;">
-            <span style="align-self: center;">Number of Dice: </span>
+            <span style="align-self: center;">${game.i18n.localize("SOTC.AttributeNumDice")} </span>
             <div style="flex: 1;display: flex;flex-direction: column;">
               <div class="flexrow">
                 <span style="flex: 1; text-align: center;">1</span>
@@ -1071,17 +1072,17 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     `;
 
     new Dialog({
-      title: `${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt`,
+      title: game.i18n.format("SOTC.AttributeAttempt", {attribute: attributeLabel}),
       content,
       buttons: {
         roll: {
-          label: "Roll",
+          label: game.i18n.localize("SOTC.ButtonRoll"),
           callback: async html => {
             const num_attempts = Number(html.find(".num_attempts").val()) || 1;
-            await this._rollAttribute(attribute_key, attribute, num_attempts);
+            await this._rollAttribute(attribute_key, attribute, num_attempts, attributeLabel);
           }
         },
-        cancel: { label: "Cancel" }
+        cancel: { label: game.i18n.localize("SOTC.ButtonCancel") }
       },
       default: "roll"
     }, {
@@ -1090,7 +1091,7 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     
   }
 
-  async _rollAttribute(attribute_key, attribute_value, num_attempts) {
+  async _rollAttribute(attribute_key, attribute_value, num_attempts, attributeLabel) {
     // Roll num_attempts d10s
     const roll = new Roll(`${num_attempts}d10`);
     await roll.evaluate({ async: true });
@@ -1099,16 +1100,19 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     const results = roll.dice[0].results.map(r => r.result);
     const success = results.some(r => r <= attribute_value);
 
-    const result_text = success ? '<b style="margin-bottom: 4px; color: #00aa00;">SUCCESS</b>' : '<b style="margin-bottom: 4px; color: #ff4444;">FAILURE</b>';
+    const result_text = success
+      ? `<b style="margin-bottom: 4px; color: #00aa00;">${game.i18n.localize("SOTC.AttributeSuccess")}</b>`
+      : `<b style="margin-bottom: 4px; color: #ff4444;">${game.i18n.localize("SOTC.AttributeFailure")}</b>`;
 
     const roll_HTML = await roll.render();
+    const label = attributeLabel ?? game.i18n.localize(`SOTC.Attribute${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)}`);
 
     // Build message
     const message = `
       <div class="attribute-roll">
-        <h3>${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} Attempt</h3>
-        <p>${num_attempts}d10 vs. ${attribute_key.charAt(0).toUpperCase() + attribute_key.slice(1)} (${attribute_value})</p>
-        <p>Results: [ ${results.join(", ")} ]</p>
+        <h3>${game.i18n.format("SOTC.AttributeAttempt", {attribute: label})}</h3>
+        <p>${game.i18n.format("SOTC.AttributeRollVs", {dice: `${num_attempts}d10`, attribute: label, value: attribute_value})}</p>
+        <p>${game.i18n.localize("SOTC.AttributeResults")} [ ${results.join(", ")} ]</p>
         ${result_text}
         ${roll_HTML}
       </div>

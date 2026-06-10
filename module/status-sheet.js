@@ -83,7 +83,7 @@ export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
     event.preventDefault();
     const status = this.item;
 
-    if (!status) return ui.notifications.error("No status data found.");
+    if (!status) return ui.notifications.error(game.i18n.localize("SOTC.NotifyNoStatusData"));
 
     const s = status.system;
     const name = status.name;
@@ -103,17 +103,20 @@ export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
     let message = "";
     let flat_message = "";
     if (potencyFlat) {
-      flat_message = `by <b>${potencyFlat}</b> flat, and`;
+      flat_message = game.i18n.format("SOTC.StatusPrintByFlat", {flat: potencyFlat});
     }
+
+    const typeLabel = game.i18n.localize("SOTC.StatusPrintType");
+    const descLabel = game.i18n.localize("SOTC.StatusPrintDescription");
 
     switch (condition) {
       case "passive":
         message = `
           <div class="status-chat">
             <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
-            <p><b>Type:</b> ${type}</p>
-            <b>Description:</b>
-            <p>Passively ${effect} ${target} ${flat_message} by <b>${potency}</b> per count.</p>
+            <p><b>${typeLabel}</b> ${type}</p>
+            <b>${descLabel}</b>
+            <p>${game.i18n.format("SOTC.StatusPrintPassive", {effect, target, flat: flat_message, potency})}</p>
             ${special ? `<p>${special}</p>` : ""}
           </div>
         `;
@@ -123,9 +126,9 @@ export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
         message = `
           <div class="status-chat">
             <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
-            <p><b>Type:</b> ${type}</p>
-            <b>Description:</b>
-            <p>On Trigger ${effect} ${target} ${flat_message} by <b>${potency}</b> per count.</p>
+            <p><b>${typeLabel}</b> ${type}</p>
+            <b>${descLabel}</b>
+            <p>${game.i18n.format("SOTC.StatusPrintActive", {effect, target, flat: flat_message, potency})}</p>
             ${special ? `<p>${special}</p>` : ""}
           </div>
         `;
@@ -135,9 +138,9 @@ export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
         message = `
           <div class="status-chat">
             <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
-            <p><b>Type:</b> ${type}</p>
-            <b>Description:</b>
-            ${special ? `<p>${special}</p>` : "<p><i>Missing Description.</i></p>"}
+            <p><b>${typeLabel}</b> ${type}</p>
+            <b>${descLabel}</b>
+            ${special ? `<p>${special}</p>` : `<p><i>${game.i18n.localize("SOTC.StatusPrintMissingDescription")}</i></p>`}
           </div>
         `;
         break;
@@ -146,9 +149,9 @@ export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
         message = `
           <div class="status-chat">
             <h3><div style="display: flex;">${icon}<span style="margin-top:4px;">${name}</span></div></h3>
-            <p><b>Type:</b> ${type}</p>
-            <b>Description:</b>
-            <p><i>Stagger-like effects don't have description support yet.</i></p>
+            <p><b>${typeLabel}</b> ${type}</p>
+            <b>${descLabel}</b>
+            <p><i>${game.i18n.localize("SOTC.StatusPrintStaggerLike")}</i></p>
           </div>
         `;
         break;
@@ -157,7 +160,7 @@ export class SotCStatusSheet extends foundry.appv1.sheets.ItemSheet {
         message = `
           <div class="status-chat">
             <h3>${icon}${name} <small>(${type})</small></h3>
-            <p><i>Missing Effect Details.</i></p>
+            <p><i>${game.i18n.localize("SOTC.StatusPrintMissingDetails")}</i></p>
           </div>
         `;
         break;

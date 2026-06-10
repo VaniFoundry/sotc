@@ -22,7 +22,7 @@
                 </div>
             </div>
             <div class="skill_name">
-                <input name="name" type="text" value="{{data.name}}" placeholder="Name"/>
+                <input name="name" type="text" value="{{data.name}}" placeholder="{{localize "SOTC.ActorName"}}"/>
             </div>
             <div class="skill-img_div">
                 <img class="skill-img" src="{{data.img}}" data-edit="img" title="{{data.name}}"/>
@@ -39,7 +39,7 @@
                     {{/if}}
                 </div>
                 <div class="skill_description">
-                    <textarea type="text" id="skill_description_bottom" name="system.description" placeholder="Description..." style="width: 90%;">{{systemData.description}}</textarea>
+                    <textarea type="text" id="skill_description_bottom" name="system.description" placeholder="{{localize "SOTC.SkillDescription"}}" style="width: 90%;">{{systemData.description}}</textarea>
                 </div>
             </div>
             
@@ -51,7 +51,7 @@
                     <div class="edit">
                         <a class="toggle-edit-mode">
                             <i class="fas fa-{{#if sheetEditMode}}check{{else}}edit{{/if}}"></i>
-                            {{#if sheetEditMode}} Save {{else}} Edit {{/if}}
+                            {{#if sheetEditMode}}{{localize "SOTC.SkillSave"}}{{else}}{{localize "SOTC.SkillEdit"}}{{/if}}
                         </a>
                     </div>
                     <div class="border-selector">
@@ -65,13 +65,13 @@
                     </div>
                     <div class="limit">
                         {{#if sheetEditMode}}
-                            <span>Limit: </span>
+                            <span>{{localize "SOTC.SkillLimit"}}: </span>
                             <input type="number" name="system.limit.value" value="{{systemData.limit.value}}" style="width:20px">
                             <span>/</span>
                             <input type="number" name="system.limit.max" value="{{systemData.limit.max}}" style="width:20px">
                         {{else}}
                             {{#if systemData.limit.max}}
-                                <span>Limit: </span>
+                                <span>{{localize "SOTC.SkillLimit"}}: </span>
                                 <input type="number" name="system.limit.value" value="{{systemData.limit.value}}" style="width:20px">
                                 <span>/</span>
                                 <span class="system.limit.max">{{systemData.limit.max}}</span>
@@ -82,20 +82,20 @@
                 <div class="weight_and_emotion">
                     <div class="skill_weight">
                         {{#if sheetEditMode}}
-                            <span>Attack Weight: </span>
+                            <span>{{localize "SOTC.SkillAttackWeight"}}: </span>
                             <input type="number" name="system.weight" value="{{systemData.weight}}" style="width:20px">
                         {{/if}}
                     </div>
                     <div class="skill_emotion">
                         {{#if sheetEditMode}}
-                            <span>Emotion Cost: </span>
+                            <span>{{localize "SOTC.SkillEmotionCost"}}: </span>
                             <input type="number" name="system.emotion_cost" value="{{systemData.emotion_cost}}" style="width:20px"/>
                         {{/if}}
                     </div>
                 </div>
                 <div class="skill_mods">
                     {{#if sheetEditMode}}
-                    <textarea type="text" name="system.skill_modules.mods" placeholder="[On Use] ...">{{systemData.skill_modules.mods}}</textarea>
+                    <textarea type="text" name="system.skill_modules.mods" placeholder="{{localize "SOTC.SkillModsPlaceholder"}}">{{systemData.skill_modules.mods}}</textarea>
                     {{else}}
                     <span class="system.skill_modules.mods" style="width: 100%; height: auto; overflow-wrap: break-word; white-space: pre-line; color: white;">{{systemData.skill_modules.mods}}</span>
                     {{/if}}
@@ -104,7 +104,7 @@
                 <ol class="skill_mods">
                     {{#each systemData.skill_modules.mods as |mods i| }}
                     <li class="skill_modules-mods flexrow" data-skill_modules-mods="{{i}}">
-                        <textarea type="text" name="system.skill_modules.mods.{{i}}" placeholder="[On Use] ...">{{mods}}</textarea>
+                        <textarea type="text" name="system.skill_modules.mods.{{i}}" placeholder="{{localize "SOTC.SkillModsPlaceholder"}}">{{mods}}</textarea>
                         <a class="skill_modules-control delete-skill_modules"><i class="fas fa-minus"></i></a>
                     </li>
                     {{/each}}
@@ -123,19 +123,19 @@
                             <!-- Editable version -->
                             <a class="dice-control delete-dice" style="width:15px"><i class="fas fa-minus"></i></a>
                             <select name="system.dice.die.{{i}}.type" style="width:120px">
-                                <option value="slash" {{#if (eq die.type "slash")}}selected{{/if}}>Slash</option>
-                                <option value="pierce" {{#if (eq die.type "pierce")}}selected{{/if}}>Pierce</option>
-                                <option value="blunt" {{#if (eq die.type "blunt")}}selected{{/if}}>Blunt</option>
-                                <option value="evade" {{#if (eq die.type "evade")}}selected{{/if}}>Evade</option>
-                                <option value="block" {{#if (eq die.type "block")}}selected{{/if}}>Block</option>
-                                <option value="counter-slash" {{#if (eq die.type "counter-slash")}}selected{{/if}}>Counter-Slash</option>
-                                <option value="counter-pierce" {{#if (eq die.type "counter-pierce")}}selected{{/if}}>Counter-Pierce</option>
-                                <option value="counter-blunt" {{#if (eq die.type "counter-blunt")}}selected{{/if}}>Counter-Blunt</option>
-                                <option value="counter-evade" {{#if (eq die.type "counter-evade")}}selected{{/if}}>Counter-Evade</option>
-                                <option value="counter-block" {{#if (eq die.type "counter-block")}}selected{{/if}}>Counter-Block</option>
+                                <option value="slash" {{#if (eq die.type "slash")}}selected{{/if}}>{{localize "SOTC.DieSlash"}}</option>
+                                <option value="pierce" {{#if (eq die.type "pierce")}}selected{{/if}}>{{localize "SOTC.DiePierce"}}</option>
+                                <option value="blunt" {{#if (eq die.type "blunt")}}selected{{/if}}>{{localize "SOTC.DieBlunt"}}</option>
+                                <option value="evade" {{#if (eq die.type "evade")}}selected{{/if}}>{{localize "SOTC.DieEvade"}}</option>
+                                <option value="block" {{#if (eq die.type "block")}}selected{{/if}}>{{localize "SOTC.DieBlock"}}</option>
+                                <option value="counter-slash" {{#if (eq die.type "counter-slash")}}selected{{/if}}>{{localize "SOTC.DieCounterSlash"}}</option>
+                                <option value="counter-pierce" {{#if (eq die.type "counter-pierce")}}selected{{/if}}>{{localize "SOTC.DieCounterPierce"}}</option>
+                                <option value="counter-blunt" {{#if (eq die.type "counter-blunt")}}selected{{/if}}>{{localize "SOTC.DieCounterBlunt"}}</option>
+                                <option value="counter-evade" {{#if (eq die.type "counter-evade")}}selected{{/if}}>{{localize "SOTC.DieCounterEvade"}}</option>
+                                <option value="counter-block" {{#if (eq die.type "counter-block")}}selected{{/if}}>{{localize "SOTC.DieCounterBlock"}}</option>
                             </select>
                             <input type="text" name="system.dice.die.{{i}}.formula" value="{{die.formula}}" data-formula-editor style="width: 60px; margin-right: 5px;"/>
-                            <img src="systems/sotc/assets/sheets/skills/DiceSlotIcon.webp" class="skill-die-button rollable" data-index="{{i}}" alt="Roll" style="width: auto; height: 24px; cursor: pointer; vertical-align: middle;">
+                            <img src="systems/sotc/assets/sheets/skills/DiceSlotIcon.webp" class="skill-die-button rollable" data-index="{{i}}" alt="{{localize "SOTC.SkillRollAlt"}}" style="width: auto; height: 24px; cursor: pointer; vertical-align: middle;">
                             {{else}}
                             <!-- Read-only version -->
                             <div class="displayed_dice">
@@ -159,7 +159,7 @@
                                 <li class="dice_modules-mods flexrow" data-dice-mod="{{j}}" data-die-index="{{@../index}}">
                                     <div class="dice_mod_div_inner">
                                         <a class="dice_modules-control delete-dice_modules" style="width:15px; margin-right: 5px;"><i class="fas fa-minus"></i></a>
-                                        <input type="text" name="system.dice.die.{{@../index}}.mods.{{j}}" value="{{mods}}" placeholder="[Clash Win] ...">
+                                        <input type="text" name="system.dice.die.{{@../index}}.mods.{{j}}" value="{{mods}}" placeholder="{{localize "SOTC.SkillDieModsPlaceholder"}}">
                                     </div>
                                 </li>
                                 {{/each}}
@@ -168,7 +168,7 @@
                         {{/if}}
                     </li>
                     {{else}}
-                    <li><span>This Skill Has No Dice.</span></li>
+                    <li><span>{{localize "SOTC.SkillNoDice"}}</span></li>
                     {{/each}}
                 </ol>
                 <h4 class="dice-header">
@@ -180,4 +180,3 @@
         </div>
     </div>
 </form>
-
