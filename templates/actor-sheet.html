@@ -5,11 +5,11 @@
         <div class="name_and_mini">
             <img class="mini_img" src="{{systemData.mini_img}}" data-edit="system.mini_img" style="width:35px; height:35px; border:none;" />
             <div class="char_name">
-                <input name="name" type="text" value="{{data.name}}" placeholder="Name"/>
+                <input name="name" type="text" value="{{data.name}}" placeholder="{{localize "SOTC.ActorName"}}"/>
             </div>
         </div>
         <div class="char_role">
-            <input name="system.role" type="text" value="{{systemData.role}}" placeholder="Role, i.e. The Black Silence"/>
+            <input name="system.role" type="text" value="{{systemData.role}}" placeholder="{{localize "SOTC.ActorRole"}}"/>
         </div>
     </div>
 
@@ -26,7 +26,7 @@
                             <div class="passive_left">
                                 <h4 class="passive_name" style="font-size: 16px; color: inherit; font-weight: bold; text-shadow:  black 1px 0 10px, black 1px 0 10px;">{{passive.name}}</h4>
                                 <div>
-                                    <a class="passive_card-control print-passive_card" style="margin-bottom: 4px;">Print Biography Entry <i class="fas fa-print"></i></a>
+                                    <a class="passive_card-control print-passive_card" style="margin-bottom: 4px;">{{localize "SOTC.ActorPrintBiography"}} <i class="fas fa-print"></i></a>
                                     <div class="edit_and_delete"> 
                                         <a class="passive_card-control edit-passive_card"><i class="fas fa-edit"></i></a>
                                         <a class="passive_card-control duplicate-passive_card"><i class="fas fa-clone"></i></a>
@@ -43,7 +43,7 @@
                 {{/each}}
                 <div class="passive_card">
                     <div class="passive_left" style="text-align: center;">
-                        <a class="passive_card-control add-biography_card" style="height: 40px; font-size: 20px;">Add Biography Entry<br /><i class="fas fa-plus"></i></a>
+                        <a class="passive_card-control add-biography_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddBiography"}}<br /><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -60,42 +60,42 @@
                     <div class="resource_summaries">
                         <div class="resource_summary">
                             <div class="resource" style="color: #ff5a39;">  
-                                <img src="systems/sotc/assets/sheets/HPIcon.webp" alt="HP Icon" style="width:auto; height:30px; border:none;">
+                                <img src="systems/sotc/assets/sheets/HPIcon.webp" alt="{{localize "SOTC.ActorAltHPIcon"}}" style="width:auto; height:30px; border:none;">
                                 <input type="text" inputmode="numeric" name="system.health.value" value="{{systemData.health.value}}"/>
                                 <span> / </span>
                                 <input type="text" inputmode="numeric" name="system.health.max" value="{{systemData.health.max}}"/>
                             </div>
                             <div class="resource" style="color: #ffff39;">
-                                <img src="systems/sotc/assets/sheets/StaggerIcon.webp" alt="Stagger Icon" style="width:auto; height:30px; border:none">
+                                <img src="systems/sotc/assets/sheets/StaggerIcon.webp" alt="{{localize "SOTC.ActorAltStaggerIcon"}}" style="width:auto; height:30px; border:none">
                                 <input type="text" inputmode="numeric" name="system.stagger.value" value="{{systemData.stagger.value}}"/>
                                 <span> / </span>
                                 <input type="text" inputmode="numeric" name="system.stagger.max" value="{{systemData.stagger.max}}"/>
                             </div>
                             <div class="resource">
-                                <img src="systems/sotc/assets/sheets/EmotionIcon.webp" alt="Emotion Icon" style="width:auto; height:30px; border:none">
+                                <img src="systems/sotc/assets/sheets/EmotionIcon.webp" alt="{{localize "SOTC.ActorAltEmotionIcon"}}" style="width:auto; height:30px; border:none">
                                 <input type="text" inputmode="numeric" name="system.emotion" value="{{systemData.emotion}}"/>
                             </div>
                         </div>
                         <div class="resource_summary_2">
                             <div class="light_summary">
                                 <div class="resource">
-                                    <img src="systems/sotc/assets/sheets/LightIcon.webp" alt="Light Icon" style="width:auto; height:30px; border:none">
+                                    <img src="systems/sotc/assets/sheets/LightIcon.webp" alt="{{localize "SOTC.ActorAltLightIcon"}}" style="width:auto; height:30px; border:none">
                                     <input type="number" name="system.light.value" value="{{systemData.light.value}}"/>
                                     <span> / </span>
                                     <input type="number" name="system.light.max" value="{{systemData.light.max}}"/>
                                 </div>
                                 <div class="resource">
-                                    <img src="systems/sotc/assets/sheets/LightGain.png" alt="Light Gain" style="width:auto; height:30px; border:none">
+                                    <img src="systems/sotc/assets/sheets/LightGain.png" alt="{{localize "SOTC.ActorAltLightGain"}}" style="width:auto; height:30px; border:none">
                                     <input type="number" name="system.light.light_regen" value="{{systemData.light.light_regen}}"/>
                                 </div>
                             </div>
                             <div class="dice_summary">
                                 <div class="resource">
-                                    <img src="systems/sotc/assets/sheets/dice_num.webp" alt="Dice Number" style="width:auto; height:30px; border:none">
+                                    <img src="systems/sotc/assets/sheets/dice_num.webp" alt="{{localize "SOTC.ActorAltDiceNumber"}}" style="width:auto; height:30px; border:none">
                                     <input type="number" name="system.speed_dice.num_dice" value="{{systemData.speed_dice.num_dice}}"/>
                                 </div>
                                 <div class="resource">
-                                    <img src="systems/sotc/assets/sheets/dice_size.webp" alt="Dice Size" style="width:auto; height:30px; border:none">
+                                    <img src="systems/sotc/assets/sheets/dice_size.webp" alt="{{localize "SOTC.ActorAltDiceSize"}}" style="width:auto; height:30px; border:none">
                                     <input type="text" name="system.speed_dice.dice_size" value="{{systemData.speed_dice.dice_size}}" style="width:60px"/>
                                 </div>
                             </div>
@@ -103,7 +103,7 @@
                         <div class="resource_summary_3">
                             <table class="affinities" style="border:none;">
                                 <tr>
-                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_slash.webp" alt="Slash Damage Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_slash.webp" alt="{{localize "SOTC.ActorAltSlashDamageRes"}}" style="width:30px; height:30px; border:none"></th>
                                     <th style="display:flex; align-items:center; justify-content:center;">
                                         <input type="number" name="system.affinities.damage_slash" value="{{systemData.affinities.damage_slash}}" style="width:30%";>
                                         {{#if (ne systemData.modifiers.slash_damage_affinity systemData.affinities.damage_slash)}}
@@ -118,7 +118,7 @@
                                             </span>
                                         {{/if}}
                                     </th>
-                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_slash.webp" alt="Slash Stagger Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_slash.webp" alt="{{localize "SOTC.ActorAltSlashStaggerRes"}}" style="width:30px; height:30px; border:none"></th>
                                     <th style="display:flex; align-items:center; justify-content:center;">
                                         <input type="number" name="system.affinities.stagger_slash" value="{{systemData.affinities.stagger_slash}}" style="width:30%";>
                                         {{#if (ne systemData.modifiers.slash_stagger_affinity systemData.affinities.stagger_slash)}}
@@ -135,7 +135,7 @@
                                     </th>
                                 </tr>
                                 <tr>
-                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_pierce.webp" alt="Pierce Damage Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_pierce.webp" alt="{{localize "SOTC.ActorAltPierceDamageRes"}}" style="width:30px; height:30px; border:none"></th>
                                     <th style="display:flex; align-items:center; justify-content:center;">
                                         <input type="number" name="system.affinities.damage_pierce" value="{{systemData.affinities.damage_pierce}}" style="width:30%";>
                                         {{#if (ne systemData.modifiers.pierce_damage_affinity systemData.affinities.damage_pierce)}}
@@ -150,7 +150,7 @@
                                             </span>
                                         {{/if}}
                                     </th>
-                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_pierce.webp" alt="Pierce Stagger Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_pierce.webp" alt="{{localize "SOTC.ActorAltPierceStaggerRes"}}" style="width:30px; height:30px; border:none"></th>
                                     <th style="display:flex; align-items:center; justify-content:center;">
                                         <input type="number" name="system.affinities.stagger_pierce" value="{{systemData.affinities.stagger_pierce}}" style="width:30%";>
                                         {{#if (ne systemData.modifiers.pierce_stagger_affinity systemData.affinities.stagger_pierce)}}
@@ -167,7 +167,7 @@
                                     </th>
                                 </tr>
                                 <tr>
-                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_blunt.webp" alt="Blunt Damage Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/dres_blunt.webp" alt="{{localize "SOTC.ActorAltBluntDamageRes"}}" style="width:30px; height:30px; border:none"></th>
                                     <th style="display:flex; align-items:center; justify-content:center;">
                                         <input type="number" name="system.affinities.damage_blunt" value="{{systemData.affinities.damage_blunt}}" style="width:30%";>
                                         {{#if (ne systemData.modifiers.blunt_damage_affinity systemData.affinities.damage_blunt)}}
@@ -182,7 +182,7 @@
                                             </span>
                                         {{/if}}
                                     </th>
-                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_blunt.webp" alt="Blunt Stagger Resistance" style="width:30px; height:30px; border:none"></th>
+                                    <th style="width:30px; height:30px;"><img src="systems/sotc/assets/sheets/sres_blunt.webp" alt="{{localize "SOTC.ActorAltBluntStaggerRes"}}" style="width:30px; height:30px; border:none"></th>
                                     <th style="display:flex; align-items:center; justify-content:center;">
                                         <input type="number" name="system.affinities.stagger_blunt" value="{{systemData.affinities.stagger_blunt}}" style="width:30%";>
                                         {{#if (ne systemData.modifiers.blunt_stagger_affinity systemData.affinities.stagger_blunt)}}
@@ -207,56 +207,56 @@
                 <div class="attributes">
                     <table class="affinities" style="border:none;">
                         <tr>
-                            <th><a class="attribute-label roll-might"><u>Might:</u></a></th>
+                            <th><a class="attribute-label roll-might"><u>{{localize "SOTC.AttributeMight"}}:</u></a></th>
                             <th><input type="number" name="system.attribute.might.value" value="{{systemData.attribute.might.value}}"/></th>
                         </tr>
                         <tr>
-                            <th><a class="attribute-label roll-vitality"><u>Vitality:</u></a></th>
+                            <th><a class="attribute-label roll-vitality"><u>{{localize "SOTC.AttributeVitality"}}:</u></a></th>
                             <th><input type="number" name="system.attribute.vitality.value" value="{{systemData.attribute.vitality.value}}"/></th>
                         </tr>
                         <tr>
-                            <th><a class="attribute-label roll-agility"><u>Agility:</u></a></th>
+                            <th><a class="attribute-label roll-agility"><u>{{localize "SOTC.AttributeAgility"}}:</u></a></th>
                             <th><input type="number" name="system.attribute.agility.value" value="{{systemData.attribute.agility.value}}"/></th>
                         </tr>
                         <tr>
-                            <th><a class="attribute-label roll-intellect"><u>Intellect:</u></a></th>
+                            <th><a class="attribute-label roll-intellect"><u>{{localize "SOTC.AttributeIntellect"}}:</u></a></th>
                             <th><input type="number" name="system.attribute.intellect.value" value="{{systemData.attribute.intellect.value}}"/></th>
                         </tr>
                         <tr>
-                            <th><a class="attribute-label roll-instinct"><u>Instinct:</u></a></th>
+                            <th><a class="attribute-label roll-instinct"><u>{{localize "SOTC.AttributeInstinct"}}:</u></a></th>
                             <th><input type="number" name="system.attribute.instinct.value" value="{{systemData.attribute.instinct.value}}"/></th>
                         </tr>
                         <tr>
-                            <th><a class="attribute-label roll-persona"><u>Persona:</u></a></th>
+                            <th><a class="attribute-label roll-persona"><u>{{localize "SOTC.AttributePersona"}}:</u></a></th>
                             <th><input type="number" name="system.attribute.persona.value" value="{{systemData.attribute.persona.value}}"/></th>
                         </tr>
                     </table>
                     <hr style="border-color: #efc281; border-width: 1px;">
-                    <div class="misc_summary_data" style="font-weight: bold;"><span>Excellence:</span><input type="number" name="system.excellence" value="{{systemData.excellence}}"/></div>
-                    <div class="misc_summary_data" style="font-weight: bold;"><span>Injuries:</span><input type="number" name="system.injuries" value="{{systemData.injuries}}"/></div>
-                    <div class="misc_summary_data" style="font-weight: bold;"><span>Anxieties:</span><input type="number" name="system.anxieties" value="{{systemData.anxieties}}"/></div>
+                    <div class="misc_summary_data" style="font-weight: bold;"><span>{{localize "SOTC.Excellence"}}:</span><input type="number" name="system.excellence" value="{{systemData.excellence}}"/></div>
+                    <div class="misc_summary_data" style="font-weight: bold;"><span>{{localize "SOTC.Injuries"}}:</span><input type="number" name="system.injuries" value="{{systemData.injuries}}"/></div>
+                    <div class="misc_summary_data" style="font-weight: bold;"><span>{{localize "SOTC.Anxieties"}}:</span><input type="number" name="system.anxieties" value="{{systemData.anxieties}}"/></div>
                     <hr style="border-color: #efc281; border-width: 1px;">
-                    <div class="misc_summary_data" style="font-weight: bold;"><span>Level:</span><input type="number" name="system.level" value="{{systemData.level}}"/></div>
+                    <div class="misc_summary_data" style="font-weight: bold;"><span>{{localize "SOTC.Level"}}:</span><input type="number" name="system.level" value="{{systemData.level}}"/></div>
                     <hr style="border-color: #efc281; border-width: 1px;">
-                    <div class="misc_summary_data" style="font-weight: bold;">Module Tracker</div>
-                    <div class="misc_summary_data">Rank 1:<input type="number" name="system.modules.rank_1.used" value="{{systemData.modules.rank_1.used}}"/>/<input type="number" name="system.modules.rank_1.max" value="{{systemData.modules.rank_1.max}}"/></div>
-                    <div class="misc_summary_data">Rank 2:<input type="number" name="system.modules.rank_2.used" value="{{systemData.modules.rank_2.used}}"/>/<input type="number" name="system.modules.rank_2.max" value="{{systemData.modules.rank_2.max}}"/></div>
-                    <div class="misc_summary_data">Rank 3:<input type="number" name="system.modules.rank_3.used" value="{{systemData.modules.rank_3.used}}"/>/<input type="number" name="system.modules.rank_3.max" value="{{systemData.modules.rank_3.max}}"/></div>
+                    <div class="misc_summary_data" style="font-weight: bold;">{{localize "SOTC.ModuleTracker"}}</div>
+                    <div class="misc_summary_data">{{localize "SOTC.ModuleRank" rank=1}}:<input type="number" name="system.modules.rank_1.used" value="{{systemData.modules.rank_1.used}}"/>/<input type="number" name="system.modules.rank_1.max" value="{{systemData.modules.rank_1.max}}"/></div>
+                    <div class="misc_summary_data">{{localize "SOTC.ModuleRank" rank=2}}:<input type="number" name="system.modules.rank_2.used" value="{{systemData.modules.rank_2.used}}"/>/<input type="number" name="system.modules.rank_2.max" value="{{systemData.modules.rank_2.max}}"/></div>
+                    <div class="misc_summary_data">{{localize "SOTC.ModuleRank" rank=3}}:<input type="number" name="system.modules.rank_3.used" value="{{systemData.modules.rank_3.used}}"/>/<input type="number" name="system.modules.rank_3.max" value="{{systemData.modules.rank_3.max}}"/></div>
                     <hr style="border-color: #efc281; border-width: 1px;">
                     <div class="misc_summary_data" style="font-weight: bold;">
-                        <span style="text-align: center;">Initiative Type: </span>
+                        <span style="text-align: center;">{{localize "SOTC.InitiativeType"}}: </span>
                         <select name="system.initiative_type" style="color: inherit">
-                            <option style="color: black" value="player" {{#if (eq systemData.initiative_type "player")}}selected{{/if}}>Player</option>
-                            <option style="color: black" value="npc" {{#if (eq systemData.initiative_type "npc")}}selected{{/if}}>Non-Player</option>
+                            <option style="color: black" value="player" {{#if (eq systemData.initiative_type "player")}}selected{{/if}}>{{localize "SOTC.InitiativePlayer"}}</option>
+                            <option style="color: black" value="npc" {{#if (eq systemData.initiative_type "npc")}}selected{{/if}}>{{localize "SOTC.InitiativeNonPlayer"}}</option>
                         </select>
                     </div>
                 </div>
                 <div class="battle_abilities">
-                    <input type="text" name="system.battle_ability_1.name" value="{{systemData.battle_ability_1.name}}" placeholder="Battle Ability 1" style="height:30px; width:100%"/>
+                    <input type="text" name="system.battle_ability_1.name" value="{{systemData.battle_ability_1.name}}" placeholder="{{localize "SOTC.BattleAbility1"}}" style="height:30px; width:100%"/>
                     <div class="battle_editor_1">
                         {{editor battle1HTML target="system.battle_ability_1.details" button=true editable=editable engine="prosemirror"}}
                     </div>
-                    <input type="text" name="system.battle_ability_2.name" value="{{systemData.battle_ability_2.name}}" placeholder="Battle Ability 2" style="height:30px; width:100%"/>
+                    <input type="text" name="system.battle_ability_2.name" value="{{systemData.battle_ability_2.name}}" placeholder="{{localize "SOTC.BattleAbility2"}}" style="height:30px; width:100%"/>
                     <div class="battle_editor_2">
                         {{editor battle2HTML target="system.battle_ability_2.details" button=true editable=editable engine="prosemirror"}}
                     </div>
@@ -289,7 +289,7 @@
                             {{/if}}
                         </div>
                         <div class="skill_roll_container" style="width: 50%; height: 50%;">
-                            <img src="systems/sotc/assets/sheets/dice_size.webp" class="skill_roll-button rollable" data-index="{{i}}" alt="Roll" style="width: auto; height: 40px; font-size: 40px; cursor: pointer; border: none;">
+                            <img src="systems/sotc/assets/sheets/dice_size.webp" class="skill_roll-button rollable" data-index="{{i}}" alt="{{localize "SOTC.SkillRollAlt"}}" style="width: auto; height: 40px; font-size: 40px; cursor: pointer; border: none;">
                         </div>
                         {{#if skill.system.emotion_cost}}
                             <img class="skill_emotion_icon" src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
@@ -304,7 +304,7 @@
                 {{/each}}
                 <div class="skill_card">
                     <div class="new_skill_card">
-                        <a class="skill_card-control add-skill_card" style="height: 40px; font-size: 20px;">Add Skill<br /><i class="fas fa-plus"></i></a>
+                        <a class="skill_card-control add-skill_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddSkill"}}<br /><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -315,7 +315,7 @@
             <div class="ego_list">
                 {{#each egos as |ego i| }}
                     <div class="ego_container">
-                        <input type="text" name="items.{{ego._id}}.system.risk" value="{{ego.system.risk}}" placeholder="ZAYIN..." style="height:10%; width:100%; border-color: black;"/>
+                        <input type="text" name="items.{{ego._id}}.system.risk" value="{{ego.system.risk}}" placeholder="{{localize "SOTC.EgoRiskPlaceholder"}}" style="height:10%; width:100%; border-color: black;"/>
                         <div class="skill_card" data-item-id="{{ego._id}}">
                             <div class="skill_mini_image_background">
                                 <img src="{{ego.img}}" title="{{ego.name}}"/>
@@ -327,7 +327,7 @@
                             <h4 class="skill_light_char">{{ego.system.light_cost}}</h4>
                             <h4 class="skill_name_char" style="text-align: center; text-shadow: black 1px 0 10px, black 1px 0 10px;">{{ego.name}}</h4>
                             <div class="skill_roll_container" style="width: 50%; height: 50%;">
-                                <img src="systems/sotc/assets/sheets/dice_size.webp" class="skill_roll-button rollable" data-index="{{i}}" alt="Roll" style="width: auto; height: 40px; font-size: 40px; cursor: pointer; border: none;">
+                                <img src="systems/sotc/assets/sheets/dice_size.webp" class="skill_roll-button rollable" data-index="{{i}}" alt="{{localize "SOTC.SkillRollAlt"}}" style="width: auto; height: 40px; font-size: 40px; cursor: pointer; border: none;">
                             </div>
                             {{#if ego.system.emotion_cost}}
                                 <img class="skill_emotion_icon" src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
@@ -339,13 +339,13 @@
                                 <a class="skill_card-control delete-skill_card"><i class="fas fa-trash"></i></a>
                             </div>
                         </div>
-                        <input type="text" name="items.{{ego._id}}.system.passive_name" value="{{ego.system.passive_name}}" placeholder="EGO Passive" style="height:10%; width:100%; border-color: black;"/>
-                        <textarea name="items.{{ego._id}}.system.passive" placeholder="Details..." style="height: 40%">{{ego.system.passive}}</textarea>
+                        <input type="text" name="items.{{ego._id}}.system.passive_name" value="{{ego.system.passive_name}}" placeholder="{{localize "SOTC.EgoPassiveName"}}" style="height:10%; width:100%; border-color: black;"/>
+                        <textarea name="items.{{ego._id}}.system.passive" placeholder="{{localize "SOTC.EgoPassiveDetails"}}" style="height: 40%">{{ego.system.passive}}</textarea>
                     </div>
                 {{/each}}
                 <div class="ego_container">
                     <div class="new_skill_card">
-                        <a class="skill_card-control add-ego_card" style="height: 40px; font-size: 20px;">Add EGO<br /><i class="fas fa-plus"></i></a>
+                        <a class="skill_card-control add-ego_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddEgo"}}<br /><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -363,7 +363,7 @@
                             <div class="passive_left">
                                 <h4 class="passive_name" style="font-size: 16px; color: inherit; font-weight: bold; text-shadow:  black 1px 0 10px, black 1px 0 10px;">{{passive.name}}</h4>
                                 <div>
-                                    <a class="passive_card-control print-passive_card" style="margin-bottom: 4px;">Print Passive <i class="fas fa-print"></i></a>
+                                    <a class="passive_card-control print-passive_card" style="margin-bottom: 4px;">{{localize "SOTC.ActorPrintPassive"}} <i class="fas fa-print"></i></a>
                                     <div class="edit_and_delete"> 
                                         <a class="passive_card-control edit-passive_card"><i class="fas fa-edit"></i></a>
                                         <a class="passive_card-control duplicate-passive_card"><i class="fas fa-clone"></i></a>
@@ -380,7 +380,7 @@
                 {{/each}}
                 <div class="passive_card">
                     <div class="passive_left" style="text-align: center;">
-                        <a class="passive_card-control add-passive_card" style="height: 40px; font-size: 20px;">Add Passive<br /><i class="fas fa-plus"></i></a>
+                        <a class="passive_card-control add-passive_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddPassive"}}<br /><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -402,7 +402,7 @@
                                         <div class="status_name_char">{{status.name}}</div>
                                         {{#if (eq status.system.condition "active")}}
                                             <div class="status_buttons">
-                                                <span style="font-size: 14px;">Trigger:</span>
+                                                <span style="font-size: 14px;">{{localize "SOTC.StatusTrigger"}}:</span>
                                                 {{#each status.system.post_actives as |post_active j| }}
                                                     {{#if (eq post_active.operator "maintain")}}
                                                         <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}">—</button>
@@ -437,12 +437,12 @@
                                         {{/if}}
                                         {{#if (eq status.system.condition "passive")}}
                                             <div class="status_passive_effect">
-                                                {{status.system.effect}} {{status.system.target}} by {{status.system.potency_flat}} flat, and by {{status.system.potency}} per count.
+                                                {{localize "SOTC.StatusPassiveEffect" effect=status.system.effect target=status.system.target flat=status.system.potency_flat potency=status.system.potency}}
                                             </div>
                                         {{/if}}
                                         {{#if (eq status.system.condition "special")}}
                                             <div class="status_special_effect">
-                                                Special effect.
+                                                {{localize "SOTC.StatusSpecialEffect"}}
                                             </div>
                                         {{/if}}
                                     </div>
@@ -464,7 +464,7 @@
                         {{/if}}
                     {{/each}}
                     <div class="new_status_card">
-                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Buff<br/><i class="fas fa-plus"></i></a>
+                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddBuff"}}<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
                 <hr style="width: 1px; border: 1px solid white; height: inherit;">
@@ -480,7 +480,7 @@
                                         <div class="status_name_char">{{status.name}}</div>
                                         {{#if (eq status.system.condition "active")}}
                                             <div class="status_buttons">
-                                                <span style="font-size: 14px;">Trigger:</span>
+                                                <span style="font-size: 14px;">{{localize "SOTC.StatusTrigger"}}:</span>
                                                 {{#each status.system.post_actives as |post_active j| }}
                                                     {{#if (eq post_active.operator "maintain")}}
                                                         <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}">—</button>
@@ -515,12 +515,12 @@
                                         {{/if}}
                                         {{#if (eq status.system.condition "passive")}}
                                             <div class="status_passive_effect">
-                                                {{status.system.effect}} {{status.system.target}} by {{status.system.potency_flat}} flat, and by {{status.system.potency}} per count.
+                                                {{localize "SOTC.StatusPassiveEffect" effect=status.system.effect target=status.system.target flat=status.system.potency_flat potency=status.system.potency}}
                                             </div>
                                         {{/if}}
                                         {{#if (eq status.system.condition "special")}}
                                             <div class="status_special_effect">
-                                                Special effect.
+                                                {{localize "SOTC.StatusSpecialEffect"}}
                                             </div>
                                         {{/if}}
                                     </div>
@@ -542,7 +542,7 @@
                         {{/if}}
                     {{/each}}
                     <div class="new_status_card">
-                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Debuff<br/><i class="fas fa-plus"></i></a>
+                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddDebuff"}}<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -560,7 +560,7 @@
                                         <div class="status_name_char">{{status.name}}</div>
                                         {{#if (eq status.system.condition "active")}}
                                             <div class="status_buttons">
-                                                <span style="font-size: 14px;">Trigger:</span>
+                                                <span style="font-size: 14px;">{{localize "SOTC.StatusTrigger"}}:</span>
                                                 {{#each status.system.post_actives as |post_active j| }}
                                                     {{#if (eq post_active.operator "maintain")}}
                                                         <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}">—</button>
@@ -595,12 +595,12 @@
                                         {{/if}}
                                         {{#if (eq status.system.condition "passive")}}
                                             <div class="status_passive_effect">
-                                                {{status.system.effect}} {{status.system.target}} by {{status.system.potency_flat}} flat, and by {{status.system.potency}} per count.
+                                                {{localize "SOTC.StatusPassiveEffect" effect=status.system.effect target=status.system.target flat=status.system.potency_flat potency=status.system.potency}}
                                             </div>
                                         {{/if}}
                                         {{#if (eq status.system.condition "special")}}
                                             <div class="status_special_effect">
-                                                Special effect.
+                                                {{localize "SOTC.StatusSpecialEffect"}}
                                             </div>
                                         {{/if}}
                                     </div>
@@ -622,7 +622,7 @@
                         {{/if}}
                     {{/each}}
                     <div class="new_status_card">
-                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Boon<br/><i class="fas fa-plus"></i></a>
+                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddBoon"}}<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
                 <hr style="width: 1px; border: 1px solid white; height: inherit;">
@@ -638,7 +638,7 @@
                                         <div class="status_name_char">{{status.name}}</div>
                                         {{#if (eq status.system.condition "active")}}
                                             <div class="status_buttons">
-                                                <span style="font-size: 14px;">Trigger:</span>
+                                                <span style="font-size: 14px;">{{localize "SOTC.StatusTrigger"}}:</span>
                                                 {{#each status.system.post_actives as |post_active j| }}
                                                     {{#if (eq post_active.operator "maintain")}}
                                                         <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}">—</button>
@@ -673,12 +673,12 @@
                                         {{/if}}
                                         {{#if (eq status.system.condition "passive")}}
                                             <div class="status_passive_effect">
-                                                {{status.system.effect}} {{status.system.target}} by {{status.system.potency_flat}} flat, and by {{status.system.potency}} per count.
+                                                {{localize "SOTC.StatusPassiveEffect" effect=status.system.effect target=status.system.target flat=status.system.potency_flat potency=status.system.potency}}
                                             </div>
                                         {{/if}}
                                         {{#if (eq status.system.condition "special")}}
                                             <div class="status_special_effect">
-                                                Special effect.
+                                                {{localize "SOTC.StatusSpecialEffect"}}
                                             </div>
                                         {{/if}}
                                     </div>
@@ -700,7 +700,7 @@
                         {{/if}}
                     {{/each}}
                     <div class="new_status_card">
-                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Ailment<br/><i class="fas fa-plus"></i></a>
+                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddAilment"}}<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -718,7 +718,7 @@
                                         <div class="status_name_char">{{status.name}}</div>
                                         {{#if (eq status.system.condition "active")}}
                                             <div class="status_buttons">
-                                                <span style="font-size: 14px;">Trigger:</span>
+                                                <span style="font-size: 14px;">{{localize "SOTC.StatusTrigger"}}:</span>
                                                 {{#each status.system.post_actives as |post_active j| }}
                                                     {{#if (eq post_active.operator "maintain")}}
                                                         <button type="button" class="post_active-button" data-item-id="{{../_id}}" data-index="{{j}}">—</button>
@@ -753,12 +753,12 @@
                                         {{/if}}
                                         {{#if (eq status.system.condition "passive")}}
                                             <div class="status_passive_effect">
-                                                {{status.system.effect}} {{status.system.target}} by {{status.system.potency_flat}} flat, and by {{status.system.potency}} per count.
+                                                {{localize "SOTC.StatusPassiveEffect" effect=status.system.effect target=status.system.target flat=status.system.potency_flat potency=status.system.potency}}
                                             </div>
                                         {{/if}}
                                         {{#if (eq status.system.condition "special")}}
                                             <div class="status_special_effect">
-                                                Special effect.
+                                                {{localize "SOTC.StatusSpecialEffect"}}
                                             </div>
                                         {{/if}}
                                     </div>
@@ -780,7 +780,7 @@
                         {{/if}}
                     {{/each}}
                     <div class="new_status_card">
-                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">Add Other<br/><i class="fas fa-plus"></i></a>
+                        <a class="status_card-control add-status_card" style="height: 40px; font-size: 20px;">{{localize "SOTC.ActorAddOther"}}<br/><i class="fas fa-plus"></i></a>
                     </div>
                 </div>
             </div>
@@ -790,12 +790,12 @@
 
     {{!-- Sheet Tab Navigation --}}
     <nav class="sheet-tabs tabs" data-group="primary" style="color: #efc281;">
-        <a class="item" data-tab="summary" style="color: #efc281;">Summary</a>
-        <a class="item" data-tab="skills" style="color: #efc281;">Skills</a>
-        <a class="item" data-tab="ego" style="color: #efc281;">EGO</a>
-        <a class="item" data-tab="statuses" style="color: #efc281;">Statuses</a>
-        <a class="item" data-tab="passives" style="color: #efc281;">Passives</a>
-        <a class="item" data-tab="biography" style="color: #efc281;">Biography</a>
+        <a class="item" data-tab="summary" style="color: #efc281;">{{localize "SOTC.ActorTabSummary"}}</a>
+        <a class="item" data-tab="skills" style="color: #efc281;">{{localize "SOTC.ActorTabSkills"}}</a>
+        <a class="item" data-tab="ego" style="color: #efc281;">{{localize "SOTC.ActorTabEgo"}}</a>
+        <a class="item" data-tab="statuses" style="color: #efc281;">{{localize "SOTC.ActorTabStatuses"}}</a>
+        <a class="item" data-tab="passives" style="color: #efc281;">{{localize "SOTC.ActorTabPassives"}}</a>
+        <a class="item" data-tab="biography" style="color: #efc281;">{{localize "SOTC.ActorTabBiography"}}</a>
     </nav>
 
 </form>

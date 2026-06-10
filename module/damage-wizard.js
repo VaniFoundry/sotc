@@ -10,7 +10,7 @@ Hooks.once("renderDialog", (app, html) => {
 
   html.find(".damage_wizard_button").on("click", async () => {
     const target = game.user.targets.first();
-    if (!target) return ui.notifications.warn("Target a token!");
+    if (!target) return ui.notifications.warn(game.i18n.localize("SOTC.NotifyTargetToken"));
 
     await resolveDamage(payload, html, target.actor);
     app.close();

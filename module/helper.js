@@ -675,7 +675,7 @@ export function enrichModWithStatusIcons(text, actor) {
         ? `<img src="${img}" alt="${namePart}" title="${namePart}" style="height:1em;width:1em;vertical-align:text-bottom;border:none;display:inline;">`
         : "";
       const applyBtn = applyable
-        ? `<a class="apply-status-from-chat" data-status-name="${name}" data-status-count="${count}" title="Apply ${match.trim()} to target" style="margin-left:3px;cursor:pointer;color:#c9a227;font-size:11px;font-weight:bold;">[+]</a>`
+        ? `<a class="apply-status-from-chat" data-status-name="${name}" data-status-count="${count}" title="${game.i18n.format("SOTC.ApplyStatusToTarget", {match: match.trim()})}" style="margin-left:3px;cursor:pointer;color:#c9a227;font-size:11px;font-weight:bold;">[+]</a>`
         : "";
       // Render the number part (if any) before the icon+name
       const numHtml = numPart ? `${numPart}` : "";
@@ -698,7 +698,7 @@ export class KeywordConfigApp extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "sotc-keyword-config",
-      title: "SotC — Chat Keyword Icons",
+      title: game.i18n.localize("SOTC.KeywordConfigTitle"),
       template: false,          // We'll render our own HTML
       width: 560,
       height: "auto",
@@ -723,15 +723,15 @@ export class KeywordConfigApp extends FormApplication {
 
     const rows = keywords.map((kw, i) => `
       <li class="kw-row flexrow" data-index="${i}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-        <input class="kw-name" type="text" placeholder="Keyword (e.g. Sinking)" value="${kw.name ?? ""}"
+        <input class="kw-name" type="text" placeholder="${game.i18n.localize("SOTC.KeywordPlaceholder")}" value="${kw.name ?? ""}"
           style="flex:1;"/>
-        <input class="kw-img" type="text" placeholder="Image path (systems/sotc/assets/...)" value="${kw.img ?? ""}"
+        <input class="kw-img" type="text" placeholder="${game.i18n.localize("SOTC.KeywordImagePlaceholder")}" value="${kw.img ?? ""}"
           style="flex:2;"/>
         ${kw.img ? `<img src="${kw.img}" style="height:24px;width:24px;border:none;flex-shrink:0;" onerror="this.style.display='none'">` : `<span style="width:24px;"></span>`}
-        <a class="kw-browse" data-index="${i}" title="Browse for image" style="cursor:pointer;flex-shrink:0;">
+        <a class="kw-browse" data-index="${i}" title="${game.i18n.localize("SOTC.KeywordBrowse")}" style="cursor:pointer;flex-shrink:0;">
           <i class="fas fa-folder-open"></i>
         </a>
-        <a class="kw-delete" data-index="${i}" title="Remove" style="cursor:pointer;color:#c00;flex-shrink:0;">
+        <a class="kw-delete" data-index="${i}" title="${game.i18n.localize("SOTC.KeywordRemove")}" style="cursor:pointer;flex-shrink:0;">
           <i class="fas fa-trash"></i>
         </a>
       </li>
@@ -740,23 +740,22 @@ export class KeywordConfigApp extends FormApplication {
     const html = `
       <div style="padding:8px;">
         <p style="font-size:12px;margin-bottom:8px;color:#555;">
-          These keywords will have their icon shown inline in chat skill mod lines.
-          The match is case-insensitive and whole-word. No apply button — display only.
+          ${game.i18n.localize("SOTC.KeywordConfigHelp")}
         </p>
         <ul id="kw-list" style="list-style:none;padding:0;margin:0;">
           ${rows}
         </ul>
         <div style="margin-top:8px;">
           <button type="button" id="kw-add" style="width:100%;">
-            <i class="fas fa-plus"></i> Add Keyword
+            <i class="fas fa-plus"></i> ${game.i18n.localize("SOTC.KeywordAdd")}
           </button>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
           <button type="button" id="kw-save" style="min-width:80px;">
-            <i class="fas fa-save"></i> Save
+            <i class="fas fa-save"></i> ${game.i18n.localize("SOTC.ButtonSave")}
           </button>
           <button type="button" id="kw-close" style="min-width:80px;">
-            Cancel
+            ${game.i18n.localize("SOTC.ButtonCancel")}
           </button>
         </div>
       </div>
@@ -833,7 +832,7 @@ export class KeywordConfigApp extends FormApplication {
       if (name) keywords.push({ name, img });
     });
     await game.settings.set("sotc", "chatKeywords", JSON.stringify(keywords));
-    ui.notifications.info("SotC: Keyword icons saved.");
+    ui.notifications.info(game.i18n.localize("SOTC.NotifyKeywordsSaved"));
     this.close();
   }
 

@@ -4,96 +4,96 @@
             <div class="status_info">
                 <div class="status_name">
                     <img class="profile-img" src="{{data.img}}" data-edit="img" title="{{data.name}}" style="height: 48px; width: auto;"/>
-                    <input name="name" type="text" value="{{data.name}}" placeholder="Status Effect" style="text-align: center; height: 48px; font-size: 32px; color: white;"/>
+                    <input name="name" type="text" value="{{data.name}}" placeholder="{{localize "SOTC.StatusPlaceholder"}}" style="text-align: center; height: 48px; font-size: 32px; color: white;"/>
                 </div>
                 <div class="status_type">
-                    <span>Status Type:</span>
+                    <span>{{localize "SOTC.StatusType"}}:</span>
                     <select name="system.types" style="width:120px">
-                        <option value="buff" {{#if (eq systemData.types "buff")}}selected{{/if}}>Buff</option>
-                        <option value="debuff" {{#if (eq systemData.types "debuff")}}selected{{/if}}>Debuff</option>
-                        <option value="boon" {{#if (eq systemData.types "boon")}}selected{{/if}}>Boon</option>
-                        <option value="ailment" {{#if (eq systemData.types "ailment")}}selected{{/if}}>Ailment</option>
-                        <option value="other" {{#if (eq systemData.types "other")}}selected{{/if}}>Other</option>
+                        <option value="buff" {{#if (eq systemData.types "buff")}}selected{{/if}}>{{localize "SOTC.StatusTypeBuff"}}</option>
+                        <option value="debuff" {{#if (eq systemData.types "debuff")}}selected{{/if}}>{{localize "SOTC.StatusTypeDebuff"}}</option>
+                        <option value="boon" {{#if (eq systemData.types "boon")}}selected{{/if}}>{{localize "SOTC.StatusTypeBoon"}}</option>
+                        <option value="ailment" {{#if (eq systemData.types "ailment")}}selected{{/if}}>{{localize "SOTC.StatusTypeAilment"}}</option>
+                        <option value="other" {{#if (eq systemData.types "other")}}selected{{/if}}>{{localize "SOTC.StatusTypeOther"}}</option>
                     </select>
                 </div>
                 <div class="status_effect">
                     <select name="system.condition">
-                        <option value="" {{#if (eq systemData.condition "")}}selected{{/if}}>— Select Condition —</option>
-                        <option value="active" {{#if (eq systemData.condition "active")}}selected{{/if}}>On Trigger</option>
-                        <option value="passive" {{#if (eq systemData.condition "passive")}}selected{{/if}}>Passively</option>
-                        <option value="special" {{#if (eq systemData.condition "special")}}selected{{/if}}>Special</option>
-                        <option value="stagger_like" {{#if (eq systemData.condition "stagger_like")}}selected{{/if}}>Stagger-like</option>
+                        <option value="" {{#if (eq systemData.condition "")}}selected{{/if}}>{{localize "SOTC.StatusSelectCondition"}}</option>
+                        <option value="active" {{#if (eq systemData.condition "active")}}selected{{/if}}>{{localize "SOTC.StatusConditionActive"}}</option>
+                        <option value="passive" {{#if (eq systemData.condition "passive")}}selected{{/if}}>{{localize "SOTC.StatusConditionPassive"}}</option>
+                        <option value="special" {{#if (eq systemData.condition "special")}}selected{{/if}}>{{localize "SOTC.StatusConditionSpecial"}}</option>
+                        <option value="stagger_like" {{#if (eq systemData.condition "stagger_like")}}selected{{/if}}>{{localize "SOTC.StatusConditionStaggerLike"}}</option>
                     </select>
 
                     {{#if systemData.condition}}
                         {{!-- Effect + Target + Potency: shown for active and passive --}}
                         {{#if (and (ne systemData.condition "special") (ne systemData.condition "stagger_like"))}}
                             <select name="system.effect">
-                                <option value="Increase" {{#if (eq systemData.effect "Increase")}}selected{{/if}}>Increase</option>
-                                <option value="Decrease" {{#if (eq systemData.effect "Decrease")}}selected{{/if}}>Decrease</option>
+                                <option value="Increase" {{#if (eq systemData.effect "Increase")}}selected{{/if}}>{{localize "SOTC.StatusEffectIncrease"}}</option>
+                                <option value="Decrease" {{#if (eq systemData.effect "Decrease")}}selected{{/if}}>{{localize "SOTC.StatusEffectDecrease"}}</option>
                             </select>
                             <select name="system.target">
                                 {{#if (eq systemData.condition "active")}}
-                                    <option value="hp" {{#if (eq systemData.target "hp")}}selected{{/if}}>Hit Points</option>
-                                    <option value="stagger" {{#if (eq systemData.target "stagger")}}selected{{/if}}>Stagger Resistance</option>
-                                    <option value="hp_stagger" {{#if (eq systemData.target "hp_stagger")}}selected{{/if}}>Hit Points & Stagger Resistance</option>
+                                    <option value="hp" {{#if (eq systemData.target "hp")}}selected{{/if}}>{{localize "SOTC.StatusTargetHP"}}</option>
+                                    <option value="stagger" {{#if (eq systemData.target "stagger")}}selected{{/if}}>{{localize "SOTC.StatusTargetStagger"}}</option>
+                                    <option value="hp_stagger" {{#if (eq systemData.target "hp_stagger")}}selected{{/if}}>{{localize "SOTC.StatusTargetHPStagger"}}</option>
                                 {{else}}
                                     <option value="" {{#if (eq systemData.target "")}}selected{{/if}}></option>
-                                    <option value="all dice power" {{#if (eq systemData.target "all dice power")}}selected{{/if}}>All Dice Power</option>
-                                    <option value="offensive power" {{#if (eq systemData.target "offensive power")}}selected{{/if}}>Offensive Dice Power</option>
-                                    <option value="defensive power" {{#if (eq systemData.target "defensive power")}}selected{{/if}}>Defensive Dice Power</option>
-                                    <option value="slash power" {{#if (eq systemData.target "slash power")}}selected{{/if}}>Slash Dice Power</option>
-                                    <option value="pierce power" {{#if (eq systemData.target "pierce power")}}selected{{/if}}>Pierce Dice Power</option>
-                                    <option value="blunt power" {{#if (eq systemData.target "blunt power")}}selected{{/if}}>Blunt Dice Power</option>
-                                    <option value="block power" {{#if (eq systemData.target "block power")}}selected{{/if}}>Block Dice Power</option>
-                                    <option value="evade power" {{#if (eq systemData.target "evade power")}}selected{{/if}}>Evade Dice Power</option>
-                                    <option value="damage affinities" {{#if (eq systemData.target "damage affinities")}}selected{{/if}}>Damage Affinity</option>
-                                    <option value="stagger affinities" {{#if (eq systemData.target "stagger affinities")}}selected{{/if}}>Stagger Affinity</option>
-                                    <option value="damage and stagger affinities" {{#if (eq systemData.target "damage and stagger affinities")}}selected{{/if}}>Damage & Stagger Affinity</option>
-                                    <option value="slash damage affinity" {{#if (eq systemData.target "slash damage affinity")}}selected{{/if}}>Slash Damage Affinity</option>
-                                    <option value="slash stagger affinity" {{#if (eq systemData.target "slash stagger affinity")}}selected{{/if}}>Slash Stagger Affinity</option>
-                                    <option value="slash damage and stagger affinity" {{#if (eq systemData.target "slash damage and stagger affinity")}}selected{{/if}}>Slash Damage & Stagger Affinity</option>
-                                    <option value="pierce damage affinity" {{#if (eq systemData.target "pierce damage affinity")}}selected{{/if}}>Pierce Damage Affinity</option>
-                                    <option value="pierce stagger affinity" {{#if (eq systemData.target "pierce stagger affinity")}}selected{{/if}}>Pierce Stagger Affinity</option>
-                                    <option value="pierce damage and stagger affinity" {{#if (eq systemData.target "pierce damage and stagger affinity")}}selected{{/if}}>Pierce Damage & Stagger Affinity</option>
-                                    <option value="blunt damage affinity" {{#if (eq systemData.target "blunt damage affinity")}}selected{{/if}}>Blunt Damage Affinity</option>
-                                    <option value="blunt stagger affinity" {{#if (eq systemData.target "blunt stagger affinity")}}selected{{/if}}>Blunt Stagger Affinity</option>
-                                    <option value="blunt damage and stagger affinity" {{#if (eq systemData.target "blunt damage and stagger affinity")}}selected{{/if}}>Blunt Damage & Stagger Affinity</option>
-                                    <option value="speed" {{#if (eq systemData.target "speed")}}selected{{/if}}>Speed Dice Modifier</option>
-                                    <option value="number of speed dice" {{#if (eq systemData.target "number of speed dice")}}selected{{/if}}>Number of Speed Dice</option>
-                                    <option value="max hp" {{#if (eq systemData.target "max hp")}}selected{{/if}}>Maximum Hit Points</option>
-                                    <option value="max stagger resistance" {{#if (eq systemData.target "max stagger resistance")}}selected{{/if}}>Maximum Stagger Resistance</option>
-                                    <option value="max light" {{#if (eq systemData.target "max light")}}selected{{/if}}>Maximum Light</option>
-                                    <option value="light regen" {{#if (eq systemData.target "light regen")}}selected{{/if}}>Light Regen</option>
+                                    <option value="all dice power" {{#if (eq systemData.target "all dice power")}}selected{{/if}}>{{localize "SOTC.StatusTargetAllDicePower"}}</option>
+                                    <option value="offensive power" {{#if (eq systemData.target "offensive power")}}selected{{/if}}>{{localize "SOTC.StatusTargetOffensivePower"}}</option>
+                                    <option value="defensive power" {{#if (eq systemData.target "defensive power")}}selected{{/if}}>{{localize "SOTC.StatusTargetDefensivePower"}}</option>
+                                    <option value="slash power" {{#if (eq systemData.target "slash power")}}selected{{/if}}>{{localize "SOTC.StatusTargetSlashPower"}}</option>
+                                    <option value="pierce power" {{#if (eq systemData.target "pierce power")}}selected{{/if}}>{{localize "SOTC.StatusTargetPiercePower"}}</option>
+                                    <option value="blunt power" {{#if (eq systemData.target "blunt power")}}selected{{/if}}>{{localize "SOTC.StatusTargetBluntPower"}}</option>
+                                    <option value="block power" {{#if (eq systemData.target "block power")}}selected{{/if}}>{{localize "SOTC.StatusTargetBlockPower"}}</option>
+                                    <option value="evade power" {{#if (eq systemData.target "evade power")}}selected{{/if}}>{{localize "SOTC.StatusTargetEvadePower"}}</option>
+                                    <option value="damage affinities" {{#if (eq systemData.target "damage affinities")}}selected{{/if}}>{{localize "SOTC.StatusTargetDamageAffinities"}}</option>
+                                    <option value="stagger affinities" {{#if (eq systemData.target "stagger affinities")}}selected{{/if}}>{{localize "SOTC.StatusTargetStaggerAffinities"}}</option>
+                                    <option value="damage and stagger affinities" {{#if (eq systemData.target "damage and stagger affinities")}}selected{{/if}}>{{localize "SOTC.StatusTargetDamageStaggerAffinities"}}</option>
+                                    <option value="slash damage affinity" {{#if (eq systemData.target "slash damage affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetSlashDamageAffinity"}}</option>
+                                    <option value="slash stagger affinity" {{#if (eq systemData.target "slash stagger affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetSlashStaggerAffinity"}}</option>
+                                    <option value="slash damage and stagger affinity" {{#if (eq systemData.target "slash damage and stagger affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetSlashDamageStaggerAffinity"}}</option>
+                                    <option value="pierce damage affinity" {{#if (eq systemData.target "pierce damage affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetPierceDamageAffinity"}}</option>
+                                    <option value="pierce stagger affinity" {{#if (eq systemData.target "pierce stagger affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetPierceStaggerAffinity"}}</option>
+                                    <option value="pierce damage and stagger affinity" {{#if (eq systemData.target "pierce damage and stagger affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetPierceDamageStaggerAffinity"}}</option>
+                                    <option value="blunt damage affinity" {{#if (eq systemData.target "blunt damage affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetBluntDamageAffinity"}}</option>
+                                    <option value="blunt stagger affinity" {{#if (eq systemData.target "blunt stagger affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetBluntStaggerAffinity"}}</option>
+                                    <option value="blunt damage and stagger affinity" {{#if (eq systemData.target "blunt damage and stagger affinity")}}selected{{/if}}>{{localize "SOTC.StatusTargetBluntDamageStaggerAffinity"}}</option>
+                                    <option value="speed" {{#if (eq systemData.target "speed")}}selected{{/if}}>{{localize "SOTC.StatusTargetSpeed"}}</option>
+                                    <option value="number of speed dice" {{#if (eq systemData.target "number of speed dice")}}selected{{/if}}>{{localize "SOTC.StatusTargetNumSpeedDice"}}</option>
+                                    <option value="max hp" {{#if (eq systemData.target "max hp")}}selected{{/if}}>{{localize "SOTC.StatusTargetMaxHP"}}</option>
+                                    <option value="max stagger resistance" {{#if (eq systemData.target "max stagger resistance")}}selected{{/if}}>{{localize "SOTC.StatusTargetMaxStagger"}}</option>
+                                    <option value="max light" {{#if (eq systemData.target "max light")}}selected{{/if}}>{{localize "SOTC.StatusTargetMaxLight"}}</option>
+                                    <option value="light regen" {{#if (eq systemData.target "light regen")}}selected{{/if}}>{{localize "SOTC.StatusTargetLightRegen"}}</option>
                                 {{/if}}
                             </select>
-                            <span>by </span>
+                            <span>{{localize "SOTC.StatusBy"}} </span>
                             <input type="number" name="system.potency_flat" value="{{systemData.potency_flat}}" style="width: 32px; text-align: center;"/>
-                            <span>flat, and by </span>
+                            <span>{{localize "SOTC.StatusFlatAnd"}} </span>
                             <input type="number" name="system.potency" value="{{systemData.potency}}" style="width: 32px; text-align: center;"/>
-                            <span>per status count.</span>
+                            <span>{{localize "SOTC.StatusPerCount"}}</span>
                         {{/if}}
 
                         {{!-- Trigger buttons: active only --}}
                         {{#if (eq systemData.condition "active")}}
                             <div class="post_effect_buttons">
-                                <div style="margin-top: 8px; margin-bottom: 4px;">Create the following buttons for triggering the status' effect and changing the count after the effect is triggered.</div>
+                                <div style="margin-top: 8px; margin-bottom: 4px;">{{localize "SOTC.StatusPostActiveHelp"}}</div>
                                 {{#each post_actives_normalised as |post_active i|}}
                                     <div class="post_effect_contents" data-post-active="{{i}}">
                                         <a class="post_actives-control remove-option"><i class="fas fa-minus"></i></a>
                                         <select name="system.post_actives.{{i}}.operator">
-                                            <option value="maintain" {{#if (eq post_active.operator "maintain")}}selected{{/if}}>Trigger then Do Nothing.</option>
-                                            <option value="subtract" {{#if (eq post_active.operator "subtract")}}selected{{/if}}>Trigger then Decrease By</option>
-                                            <option value="divide" {{#if (eq post_active.operator "divide")}}selected{{/if}}>Trigger then Divide By</option>
-                                            <option value="add" {{#if (eq post_active.operator "add")}}selected{{/if}}>Trigger then Increase By</option>
-                                            <option value="multiply" {{#if (eq post_active.operator "multiply")}}selected{{/if}}>Trigger then Multiply By</option>
-                                            <option value="sinking_deluge" {{#if (eq post_active.operator "sinking_deluge")}}selected{{/if}}>Trigger (Sinking) Deluge.</option>
+                                            <option value="maintain" {{#if (eq post_active.operator "maintain")}}selected{{/if}}>{{localize "SOTC.StatusOpMaintain"}}</option>
+                                            <option value="subtract" {{#if (eq post_active.operator "subtract")}}selected{{/if}}>{{localize "SOTC.StatusOpSubtract"}}</option>
+                                            <option value="divide" {{#if (eq post_active.operator "divide")}}selected{{/if}}>{{localize "SOTC.StatusOpDivide"}}</option>
+                                            <option value="add" {{#if (eq post_active.operator "add")}}selected{{/if}}>{{localize "SOTC.StatusOpAdd"}}</option>
+                                            <option value="multiply" {{#if (eq post_active.operator "multiply")}}selected{{/if}}>{{localize "SOTC.StatusOpMultiply"}}</option>
+                                            <option value="sinking_deluge" {{#if (eq post_active.operator "sinking_deluge")}}selected{{/if}}>{{localize "SOTC.StatusOpSinkingDeluge"}}</option>
                                         </select>
                                         {{#if (and (ne post_active.operator "maintain") (ne post_active.operator "sinking_deluge"))}}
                                             <input type="number" name="system.post_actives.{{i}}.variable" value="{{post_active.variable}}" style="width: 32px; text-align: center;"/>
                                         {{/if}}
-                                        <span style="font-size:11px; color:#aaa; margin-left:4px;">min&nbsp;</span>
-                                        <input type="number" name="system.post_actives.{{i}}.min_resource_limit" value="{{post_active.min_resource_limit}}" min="0" style="width: 36px; text-align: center;" title="Don't reduce the target resource below this value (0 = no floor)"/>
+                                        <span style="font-size:11px; color:#aaa; margin-left:4px;">{{localize "SOTC.StatusMinResource"}}&nbsp;</span>
+                                        <input type="number" name="system.post_actives.{{i}}.min_resource_limit" value="{{post_active.min_resource_limit}}" min="0" style="width: 36px; text-align: center;" title="{{localize "SOTC.StatusMinResourceTitle"}}"/>
                                     </div>
                                 {{/each}}
                                 <div style="margin-top: 4px;">
@@ -105,26 +105,26 @@
                         {{!-- Stagger effects + duration: stagger_like and passive --}}
                         {{#if (or (eq systemData.condition "stagger_like") (eq systemData.condition "passive"))}}
                             <div class="stagger_effects" style="margin-bottom:4px">
-                                <div style="margin-top: 8px; margin-bottom: 4px;">Apply the following effects:</div>
+                                <div style="margin-top: 8px; margin-bottom: 4px;">{{localize "SOTC.StatusStaggerEffectsHelp"}}</div>
                                 <input type="checkbox" name="system.stagger_effects.null_light_regen" {{checked systemData.stagger_effects.null_light_regen}} id="null_light_regen">
-                                <label for="null_light_regen">Prevent light restoration at scene start.</label><br>
+                                <label for="null_light_regen">{{localize "SOTC.StatusNullLightRegen"}}</label><br>
                                 <input type="checkbox" name="system.stagger_effects.null_speed_dice" {{checked systemData.stagger_effects.null_speed_dice}} id="null_speed_dice">
-                                <label for="null_speed_dice">Destroy all speed dice.</label><br>
+                                <label for="null_speed_dice">{{localize "SOTC.StatusNullSpeedDice"}}</label><br>
                                 <input type="checkbox" name="system.stagger_effects.null_affinities" {{checked systemData.stagger_effects.null_affinities}} id="null_affinities">
-                                <label for="null_affinities">Nullify any base damage and stagger resistances.</label><br>
+                                <label for="null_affinities">{{localize "SOTC.StatusNullAffinities"}}</label><br>
                                 <input type="checkbox" name="system.stagger_effects.reset_stagger" {{checked systemData.stagger_effects.reset_stagger}} id="reset_stagger">
-                                <label for="reset_stagger">Recover all stagger on clearing status.</label><br>
+                                <label for="reset_stagger">{{localize "SOTC.StatusResetStagger"}}</label><br>
                                 <input type="checkbox" name="system.stagger_effects.stagger_min.enabled" {{checked systemData.stagger_effects.stagger_min.enabled}} id="stagger_min">
-                                <label for="stagger_min">Clamp stagger >= </label>
+                                <label for="stagger_min">{{localize "SOTC.StatusStaggerMin"}}</label>
                                 <input type="number" name="system.stagger_effects.stagger_min.value" value="{{systemData.stagger_effects.stagger_min.value}}" min="0" style="width:50px; text-align:center;"/>
                                 <br>
                             </div>
                             <div class="stagger_effects">
                                 <input type="checkbox" name="system.use_duration" {{checked systemData.use_duration}} id="use_duration">
-                                <label for="use_duration">Expires after</label>
+                                <label for="use_duration">{{localize "SOTC.StatusExpiresAfter"}}</label>
                                 {{#if systemData.use_duration}}
                                     <input type="number" name="system.stagger_duration" value="{{systemData.stagger_duration}}" style="width: 32px; text-align: center;"/>
-                                    round(s).
+                                    {{localize "SOTC.StatusRounds"}}
                                 {{/if}}
                             </div>
                         {{/if}}
@@ -132,25 +132,25 @@
                         {{!-- Scene end effect: active --}}
                         {{#if (eq systemData.condition "active")}}
                             <div class="scene_end_effects">
-                                <div style="margin-top: 6px; margin-bottom: 4px;">At scene end,</div>
+                                <div style="margin-top: 6px; margin-bottom: 4px;">{{localize "SOTC.StatusSceneEnd"}}</div>
                                 <div class="scene_end_contents">
                                     <select name="system.scene_end_effect.activate_var">
-                                        <option value="activate" {{#if (eq scene_end_effect_normalised.activate_var "activate")}}selected{{/if}}>Trigger</option>
-                                        <option value="do_not_activate" {{#if (eq scene_end_effect_normalised.activate_var "do_not_activate")}}selected{{/if}}>Do not Trigger</option>
+                                        <option value="activate" {{#if (eq scene_end_effect_normalised.activate_var "activate")}}selected{{/if}}>{{localize "SOTC.StatusSceneActivate"}}</option>
+                                        <option value="do_not_activate" {{#if (eq scene_end_effect_normalised.activate_var "do_not_activate")}}selected{{/if}}>{{localize "SOTC.StatusSceneDoNotActivate"}}</option>
                                     </select>
-                                    then
+                                    {{localize "SOTC.StatusSceneThen"}}
                                     <select name="system.scene_end_effect.operator">
-                                        <option value="maintain" {{#if (eq scene_end_effect_normalised.operator "maintain")}}selected{{/if}}>Do Nothing</option>
-                                        <option value="subtract" {{#if (eq scene_end_effect_normalised.operator "subtract")}}selected{{/if}}>Decrease By</option>
-                                        <option value="divide" {{#if (eq scene_end_effect_normalised.operator "divide")}}selected{{/if}}>Divide By</option>
-                                        <option value="add" {{#if (eq scene_end_effect_normalised.operator "add")}}selected{{/if}}>Increase By</option>
-                                        <option value="multiply" {{#if (eq scene_end_effect_normalised.operator "multiply")}}selected{{/if}}>Multiply By</option>
+                                        <option value="maintain" {{#if (eq scene_end_effect_normalised.operator "maintain")}}selected{{/if}}>{{localize "SOTC.StatusSceneMaintain"}}</option>
+                                        <option value="subtract" {{#if (eq scene_end_effect_normalised.operator "subtract")}}selected{{/if}}>{{localize "SOTC.StatusSceneSubtract"}}</option>
+                                        <option value="divide" {{#if (eq scene_end_effect_normalised.operator "divide")}}selected{{/if}}>{{localize "SOTC.StatusSceneDivide"}}</option>
+                                        <option value="add" {{#if (eq scene_end_effect_normalised.operator "add")}}selected{{/if}}>{{localize "SOTC.StatusSceneAdd"}}</option>
+                                        <option value="multiply" {{#if (eq scene_end_effect_normalised.operator "multiply")}}selected{{/if}}>{{localize "SOTC.StatusSceneMultiply"}}</option>
                                     </select>
                                     {{#if (ne scene_end_effect_normalised.operator "maintain")}}
                                         <input type="number" name="system.scene_end_effect.variable" value="{{scene_end_effect_normalised.variable}}" style="width: 32px; text-align: center;"/>
                                     {{/if}}
-                                    <span style="font-size:11px; color:#aaa; margin-left:4px;">min&nbsp;</span>
-                                    <input type="number" name="system.scene_end_effect.min_resource_limit" value="{{scene_end_effect_normalised.min_resource_limit}}" min="0" style="width: 36px; text-align: center;" title="Don't reduce the target resource below this value at scene end (0 = no floor)"/>
+                                    <span style="font-size:11px; color:#aaa; margin-left:4px;">{{localize "SOTC.StatusMinResource"}}&nbsp;</span>
+                                    <input type="number" name="system.scene_end_effect.min_resource_limit" value="{{scene_end_effect_normalised.min_resource_limit}}" min="0" style="width: 36px; text-align: center;" title="{{localize "SOTC.StatusMinResourceSceneTitle"}}"/>
                                 </div>
                             </div>
                         {{/if}}
@@ -158,15 +158,15 @@
                         {{!-- Scene end effect: passive and special --}}
                         {{#if (or (eq systemData.condition "passive") (eq systemData.condition "special"))}}
                             <div class="scene_end_effects">
-                                <div style="margin-top: 6px; margin-bottom: 4px;">At scene end,</div>
+                                <div style="margin-top: 6px; margin-bottom: 4px;">{{localize "SOTC.StatusSceneEnd"}}</div>
                                 <div class="scene_end_contents">
                                     <select name="system.scene_end_effect.operator">
-                                        <option value="maintain" {{#if (eq scene_end_effect_normalised.operator "maintain")}}selected{{/if}}>Do Nothing</option>
-                                        <option value="clear" {{#if (eq scene_end_effect_normalised.operator "clear")}}selected{{/if}}>Clear All</option>
-                                        <option value="subtract" {{#if (eq scene_end_effect_normalised.operator "subtract")}}selected{{/if}}>Decrease By</option>
-                                        <option value="divide" {{#if (eq scene_end_effect_normalised.operator "divide")}}selected{{/if}}>Divide By</option>
-                                        <option value="add" {{#if (eq scene_end_effect_normalised.operator "add")}}selected{{/if}}>Increase By</option>
-                                        <option value="multiply" {{#if (eq scene_end_effect_normalised.operator "multiply")}}selected{{/if}}>Multiply By</option>
+                                        <option value="maintain" {{#if (eq scene_end_effect_normalised.operator "maintain")}}selected{{/if}}>{{localize "SOTC.StatusSceneMaintain"}}</option>
+                                        <option value="clear" {{#if (eq scene_end_effect_normalised.operator "clear")}}selected{{/if}}>{{localize "SOTC.StatusSceneClear"}}</option>
+                                        <option value="subtract" {{#if (eq scene_end_effect_normalised.operator "subtract")}}selected{{/if}}>{{localize "SOTC.StatusSceneSubtract"}}</option>
+                                        <option value="divide" {{#if (eq scene_end_effect_normalised.operator "divide")}}selected{{/if}}>{{localize "SOTC.StatusSceneDivide"}}</option>
+                                        <option value="add" {{#if (eq scene_end_effect_normalised.operator "add")}}selected{{/if}}>{{localize "SOTC.StatusSceneAdd"}}</option>
+                                        <option value="multiply" {{#if (eq scene_end_effect_normalised.operator "multiply")}}selected{{/if}}>{{localize "SOTC.StatusSceneMultiply"}}</option>
                                     </select>
                                     {{#if (and (ne scene_end_effect_normalised.operator "clear") (ne scene_end_effect_normalised.operator "maintain"))}}
                                         <input type="number" name="system.scene_end_effect.variable" value="{{scene_end_effect_normalised.variable}}" style="width: 32px; text-align: center;"/>
@@ -178,19 +178,19 @@
                         {{!-- Special trigger selector: special only --}}
                         {{#if (eq systemData.condition "special")}}
                             <div style="margin-top: 8px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 12px; color: #c9a227; font-weight: bold;">Special Trigger:</span>
+                                <span style="font-size: 12px; color: #c9a227; font-weight: bold;">{{localize "SOTC.StatusSpecialTrigger"}}</span>
                                 <select name="system.special_trigger" style="width: 200px;">
-                                    <option value="" {{#if (eq systemData.special_trigger "")}}selected{{/if}}>— None —</option>
-                                    <option value="on_receive_damage" {{#if (eq systemData.special_trigger "on_receive_damage")}}selected{{/if}}>On Receiving Damage (Thorns)</option>
+                                    <option value="" {{#if (eq systemData.special_trigger "")}}selected{{/if}}>{{localize "SOTC.StatusSpecialNone"}}</option>
+                                    <option value="on_receive_damage" {{#if (eq systemData.special_trigger "on_receive_damage")}}selected{{/if}}>{{localize "SOTC.StatusSpecialOnReceiveDamage"}}</option>
                                 </select>
                             </div>
                         {{/if}}
                     {{/if}}{{!-- end {{#if systemData.condition}} --}}
 
-                    <textarea name="system.special" placeholder="Special / Additional descriptions go here..." style="height: 64px; margin-left: 2px; margin-bottom: 8px; resize: none;">{{systemData.special}}</textarea>
+                    <textarea name="system.special" placeholder="{{localize "SOTC.StatusSpecialPlaceholder"}}" style="height: 64px; margin-left: 2px; margin-bottom: 8px; resize: none;">{{systemData.special}}</textarea>
                 </div>
             </div>
-            <a class="status_card-control print-status_card" style="margin-top: 5px;">Print Status <i class="fas fa-print"></i></a>
+            <a class="status_card-control print-status_card" style="margin-top: 5px;">{{localize "SOTC.StatusPrint"}} <i class="fas fa-print"></i></a>
         </div>
     </div>
 </form>

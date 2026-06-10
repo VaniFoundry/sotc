@@ -195,7 +195,7 @@ async _onRollSkillDie(event) {
   const die = this.item.system.dice.die[index];
 
   if (!die || !die.formula) {
-    return ui.notifications.warn("No valid formula found for this die.");
+    return ui.notifications.warn(game.i18n.localize("SOTC.NotifyNoValidFormula"));
   }
 
   try {
@@ -255,7 +255,7 @@ async _onRollSkillDie(event) {
             <div style="display: flex; gap: 4px;">
               <img src="${icon}" alt="${die.type}" title="${die.type}" style="height: 30px; width: 30px; vertical-align: middle; border: none;">
               <strong style="text-shadow: black 0.5px 0.5px; margin-top: 4px;">${roll_formula}</strong>
-                <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="Reroll die!"
+                <a class="reroll-die" data-formula="${die.formula}" data-type="${die.type}"  title="${game.i18n.localize("SOTC.RollSkillRerollDie")}"
                   data-formula="${die.formula}"
                   data-mod="0"
                   data-statmod="${status_mod}"
@@ -267,7 +267,7 @@ async _onRollSkillDie(event) {
                   <i class="fas fa-rotate-left"></i>
                 </a>
                 <a class="resolve-die"
-                  title="Apply Die!"
+                  title="${game.i18n.localize("SOTC.RollSkillApplyDie")}"
                   data-payload='${JSON.stringify({
                     dieType: die.type,
                     total: roll.total,
@@ -298,7 +298,7 @@ async _onRollSkillDie(event) {
 
   } catch (err) {
     console.error("Error rolling die:", err);
-    ui.notifications.error("Invalid formula. Please check your input.");
+    ui.notifications.error(game.i18n.localize("SOTC.NotifyInvalidFormulaInput"));
   }
 }
 

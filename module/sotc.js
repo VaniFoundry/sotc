@@ -143,7 +143,7 @@ Hooks.once("init", async function() {
         } else {
           await roll.toMessage({
             speaker: ChatMessage.getSpeaker({ actor: c.actor }),
-            flavor: `${c.name} rolls initiative (${roll.total - init_mod} → ${final_init})`,
+            flavor: game.i18n.format("SOTC.CombatInitiativeRoll", {name: c.name, rolled: roll.total - init_mod, final: final_init}),
             sound: CONFIG.sounds.dice ?? null,
           }, messageOptions);
         }
@@ -200,15 +200,15 @@ Hooks.once("init", async function() {
 
         const topResult = allRows[0];
         const previewText = topResult
-          ? `<span style="font-size:11px; color:#aaa;">${topResult.name} <strong style="color:#c9a227;">${Math.floor(topResult.final)}</strong> &nbsp;· ${initRows.length} rolled</span>`
-          : `<span style="font-size:11px; color:#aaa;">${initRows.length} rolled</span>`;
+          ? `<span style="font-size:11px; color:#aaa;">${game.i18n.format("SOTC.CombatInitiativeTop", {name: topResult.name, value: Math.floor(topResult.final), count: initRows.length})}</span>`
+          : `<span style="font-size:11px; color:#aaa;">${game.i18n.format("SOTC.CombatInitiativeRolled", {count: initRows.length})}</span>`;
 
         const cardHtml = `
           <div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif; line-height:1.6;">
             <div class="sotc-init-toggle" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; margin-bottom:4px;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <i class="fas fa-chevron-down sotc-init-chevron" style="font-size:10px; color:#888; transition:transform 0.15s;"></i>
-                <strong style="color:#e8d9a0; font-size:14px;">Initiative — Round ${round}</strong>
+                <strong style="color:#e8d9a0; font-size:14px;">${game.i18n.format("SOTC.CombatInitiativeRound", {round})}</strong>
               </div>
               ${previewText}
             </div>
@@ -216,7 +216,7 @@ Hooks.once("init", async function() {
           </div>`;
 
         await ChatMessage.create({
-          speaker: { alias: "Combat" },
+          speaker: { alias: game.i18n.localize("SOTC.CombatAlias") },
           content: cardHtml,
           flags: { sotc: { initiativeGroup: true } }
         });
@@ -241,18 +241,17 @@ Hooks.once("init", async function() {
   CONFIG.Token.objectClass = SotCToken;
 
   // More work, specifically for our Actor sheets and Item sheets.
-  // PLEASE come back and localize this later. We should ideally make this work for like, Russian, Korean, Chinese, and Japanese if we're serious about it.
   CONFIG.Actor.types = ["character"]; // No NPC Yet!!!!!!
   CONFIG.Item.types = ["skill", "ego", "status", "passive"];
   CONFIG.Actor.typeLabels = {
-    character: "Character",
+    character: game.i18n.localize("SOTC.ActorTypeCharacter"),
   //  npc: "NPC"  <- Still Not Yet!!!!!!!!!!
   };
   CONFIG.Item.typeLabels = {
-    skill: "Skill",
-    ego: "EGO",
-    status: "Status",
-    passive: "Passive"
+    skill: game.i18n.localize("SOTC.ItemTypeSkill"),
+    ego: game.i18n.localize("SOTC.ItemTypeEgo"),
+    status: game.i18n.localize("SOTC.ItemTypeStatus"),
+    passive: game.i18n.localize("SOTC.ItemTypePassive")
   };
 
   // Register sheet application classes
@@ -276,8 +275,8 @@ Hooks.once("init", async function() {
 
   // Chat keyword icon config — stored as JSON, managed via custom menu
   game.settings.register("sotc", "chatKeywords", {
-    name: "Chat Keyword Icons",
-    hint: "JSON list of custom keyword→icon mappings for chat enrichment.",
+    name: "SETTINGS.SotCChatKeywordsN",
+    hint: "SETTINGS.SotCChatKeywordsL",
     scope: "world",
     type: String,
     default: "[]",
@@ -285,8 +284,8 @@ Hooks.once("init", async function() {
   });
 
   game.settings.register("sotc", "restoreStaggerOnCombatEnd", {
-    name: "Restore Stagger on Combat End",
-    hint: "When combat ends, automatically restore all combatants' stagger to their maximum value.",
+    name: "SETTINGS.SotCRestoreStaggerN",
+    hint: "SETTINGS.SotCRestoreStaggerL",
     scope: "world",
     type: Boolean,
     default: true,
@@ -294,8 +293,8 @@ Hooks.once("init", async function() {
   });
 
   game.settings.register("sotc", "restoreLightOnCombatEnd", {
-    name: "Restore Light on Combat End",
-    hint: "When combat ends, automatically restore all combatants' light to their maximum value.",
+    name: "SETTINGS.SotCRestoreLightN",
+    hint: "SETTINGS.SotCRestoreLightL",
     scope: "world",
     type: Boolean,
     default: true,
@@ -303,8 +302,8 @@ Hooks.once("init", async function() {
   });
 
   game.settings.register("sotc", "playerDamageWizard", {
-    name: "Players Can Apply Damage to Enemies",
-    hint: "When enabled, players can open and resolve the Damage Wizard from their own skill rolls and apply damage directly to enemy tokens. The update is proxied through the GM socket so players never need ownership of the target. When disabled, only the GM can resolve the wizard.",
+    name: "SETTINGS.SotCPlayerDamageWizardN",
+    hint: "SETTINGS.SotCPlayerDamageWizardL",
     scope: "world",
     type: Boolean,
     default: false,
@@ -313,8 +312,8 @@ Hooks.once("init", async function() {
 
   // ── Alternate Rules ───────────────────────────────────────────────────────
   game.settings.register("sotc", "enemyEmotionPoints", {
-    name: "Enemies Gain Emotion Points",
-    hint: "When enabled, enemy (non-player) actors also gain 1 Emotion Point when participating in a clash resolution, the same as player characters.",
+    name: "SETTINGS.SotCEnemyEmotionPointsN",
+    hint: "SETTINGS.SotCEnemyEmotionPointsL",
     scope: "world",
     type: Boolean,
     default: false,
@@ -322,8 +321,8 @@ Hooks.once("init", async function() {
   });
 
   game.settings.register("sotc", "sinkingEnemyEmotionPoints", {
-    name: "Sinking Also Costs Enemies Emotion Points",
-    hint: "[Alternate Rule] By default, Sinking only reduces Emotion Points on player characters. When enabled, enemy actors also lose EP equal to half their Sinking count when the end-of-scene Sinking effect triggers.",
+    name: "SETTINGS.SotCSinkingEnemyEmotionPointsN",
+    hint: "SETTINGS.SotCSinkingEnemyEmotionPointsL",
     scope: "world",
     type: Boolean,
     default: false,
@@ -331,8 +330,8 @@ Hooks.once("init", async function() {
   });
 
   game.settings.register("sotc", "sinkingPlayerEmotionPoints", {
-    name: "Sinking Costs Players Emotion Points",
-    hint: "When enabled (default), Sinking reduces a player character's Emotion Points by half the Sinking count at scene end. Disable to remove the EP cost for players entirely.",
+    name: "SETTINGS.SotCSinkingPlayerEmotionPointsN",
+    hint: "SETTINGS.SotCSinkingPlayerEmotionPointsL",
     scope: "world",
     type: Boolean,
     default: true,
@@ -365,18 +364,18 @@ Hooks.once("init", async function() {
 
     // GM Settings divider before playerDamageWizard
     const gmRow = html.find(`[data-setting-id="sotc.playerDamageWizard"]`).closest(".form-group");
-    if (gmRow.length) gmRow.before(divider("GM Settings", "fas fa-shield-alt", "#7ab8e0", "#2a5a7a"));
+    if (gmRow.length) gmRow.before(divider(game.i18n.localize("SETTINGS.SotCGMSettingsDivider"), "fas fa-shield-alt", "#7ab8e0", "#2a5a7a"));
 
     // Alternate Rules divider before enemyEmotionPoints
     const altRow = html.find(`[data-setting-id="sotc.enemyEmotionPoints"]`).closest(".form-group");
-    if (altRow.length) altRow.before(divider("Alternate Rules", "fas fa-dice-d20", "#c090e0", "#5a3a6a"));
+    if (altRow.length) altRow.before(divider(game.i18n.localize("SETTINGS.SotCAlternateRulesDivider"), "fas fa-dice-d20", "#c090e0", "#5a3a6a"));
   });
 
   // Settings menu button that opens the KeywordConfigApp
   game.settings.registerMenu("sotc", "chatKeywordsMenu", {
-    name: "Chat Keyword Icons",
-    label: "Configure Keywords",
-    hint: "Add custom keywords (e.g. [On Use], Clash Win) with icons that appear inline in chat skill messages.",
+    name: "SETTINGS.SotCChatKeywordsN",
+    label: "SETTINGS.SotCChatKeywordsMenuLabel",
+    hint: "SETTINGS.SotCChatKeywordsMenuHint",
     icon: "fas fa-icons",
     type: KeywordConfigApp,
     restricted: true   // GM only
@@ -538,14 +537,14 @@ Hooks.on("renderCombatTracker", (app, html, data) => {
     const usedButton = document.createElement("a");
     usedButton.classList.add("combatant-control");
     usedButton.dataset.control = "toggleUsedSpeedDie";
-    usedButton.dataset.tooltip = "Toggle Speed Dice as Used/Unused";
-    usedButton.setAttribute("aria-label", "Toggle Speed Dice as Used/Unused");
+    usedButton.dataset.tooltip = game.i18n.localize("SOTC.CombatToggleSpeedDie");
+    usedButton.setAttribute("aria-label", game.i18n.localize("SOTC.CombatToggleSpeedDie"));
     usedButton.setAttribute("role", "button");
 
     // Icon reflects use state yippeeeeee
     const icon = document.createElement("img");
     icon.src = isUsed ? "systems/sotc/assets/icons/used.png" : "systems/sotc/assets/icons/unused.png";
-    icon.alt = "Used Speed Die";
+    icon.alt = game.i18n.localize("SOTC.CombatUsedSpeedDie");
     icon.style.width = "20px";
     icon.style.height = "20px";
     icon.classList.add("used_and_unused_icons");
@@ -973,9 +972,9 @@ Hooks.on("deleteCombat", async (combat) => {
     const what = parts.join(" and ");
     ChatMessage.create({
       content: `<div style="background:#12111a; border:1px solid #3a3050; border-radius:6px; padding:10px 12px; font-family:'Signika',sans-serif;">
-        <strong style="color:#c9a227;">Combat Ended</strong>
+        <strong style="color:#c9a227;">${game.i18n.localize("SOTC.CombatEnded")}</strong>
         <div style="color:#aaa; font-size:12px; margin-top:4px;">
-          Restored ${what} for: <span style="color:#ddd;">${restoredNames.join(", ")}</span>
+          ${game.i18n.format("SOTC.CombatRestored", {what, names: restoredNames.join(", ")})}
         </div>
       </div>`
     });
@@ -1280,7 +1279,7 @@ Hooks.once("ready", () => {
       // Player updating an actor they don't own — relay via hidden ChatMessage.
       // The GM's createChatMessage hook processes it and applies the delta.
       if (!game.users.activeGM) {
-        ui.notifications.warn("No active GM — cannot apply changes.");
+        ui.notifications.warn(game.i18n.localize("SOTC.NotifyNoActiveGM"));
         return;
       }
       await ChatMessage.create({
@@ -1512,10 +1511,10 @@ async function _notifySafeguard(actor, item, newCount) {
   await ChatMessage.create({
     content: `
       <div style="font-family:'Signika',sans-serif;background:#12111a;border:1px solid #2a5040;border-radius:6px;padding:10px 12px;">
-        <div style="color:#4caf7d;font-weight:700;font-size:13px;margin-bottom:8px;">${sgIcon}Safeguard — ${actor.name}</div>
+        <div style="color:#4caf7d;font-weight:700;font-size:13px;margin-bottom:8px;">${sgIcon}${game.i18n.format("SOTC.SafeguardTitle", {actor: actor.name})}</div>
         <div style="color:#ccc;font-size:12px;margin-bottom:10px;">
-          ${statusIcon}<b style="color:#e8d9a0;">${item.name}</b> (${statusType}, count: ${newCount}) was applied.
-          <br>Spend 1 Safeguard (${sgCount} → ${sgCount - 1}) to nullify one stack?
+          ${statusIcon}<b style="color:#e8d9a0;">${item.name}</b> ${game.i18n.format("SOTC.SafeguardApplied", {type: statusType, count: newCount})}
+          <br>${game.i18n.format("SOTC.SafeguardSpend", {from: sgCount, to: sgCount - 1})}
         </div>
         <div style="display:flex;gap:8px;">
           <button class="sotc-safeguard-yes"
@@ -1523,11 +1522,11 @@ async function _notifySafeguard(actor, item, newCount) {
             data-safeguard-id="${safeguard.id}"
             data-sg-count="${sgCount}"
             style="flex:1;background:#2a5040;color:#aee8c8;border:1px solid #3a7060;border-radius:4px;padding:4px 8px;cursor:pointer;">
-            <i class="fas fa-shield-alt"></i> Spend Safeguard
+            <i class="fas fa-shield-alt"></i> ${game.i18n.localize("SOTC.ButtonSpendSafeguard")}
           </button>
           <button class="sotc-safeguard-no"
             style="flex:1;background:#3a2020;color:#e8a0a0;border:1px solid #6a3030;border-radius:4px;padding:4px 8px;cursor:pointer;">
-            <i class="fas fa-times"></i> Ignore
+            <i class="fas fa-times"></i> ${game.i18n.localize("SOTC.ButtonIgnore")}
           </button>
         </div>
       </div>`,
@@ -1858,7 +1857,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     ev.preventDefault();
     const btn = ev.currentTarget;
 
-    const item_name = btn.dataset.itemname || "Unknown Item";
+    const item_name = btn.dataset.itemname || game.i18n.localize("SOTC.UnknownItem");
     const formula = btn.dataset.formula;
     const mod = btn.dataset.mod;
     const status_mod = btn.dataset.statmod;
@@ -1903,7 +1902,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
       const messageContent = `
         <div class="skill-die-roll">
-          <h3>${item_name} - Reroll ${type}</h3>
+          <h3>${game.i18n.format("SOTC.RerollTitle", {item: item_name, type})}</h3>
           <div style="margin-left:5px;margin-bottom:5px;">
             <span class="${colorClass}" style="margin-left: 5px; vertical-align: middle; font-size: 16px;">
               <div style="display: flex; gap: 4px;">
@@ -1917,12 +1916,12 @@ Hooks.on("renderChatMessage", (message, html) => {
                   data-color="${colorClass}"
                   data-modules='${JSON.stringify(modules)}'
                   data-itemname="${item_name}"
-                  title="Reroll die!" 
+                  title="${game.i18n.localize("SOTC.RollSkillRerollDie")}" 
                   style="width: 16px; height: 16px; color: black; margin-top: 4px; margin-left: 8px;">
                   <i class="fas fa-rotate-left"></i>
                 </a>
                 <a class="resolve-die"
-                  title="Apply Die!"
+                  title="${game.i18n.localize("SOTC.RollSkillApplyDie")}"
                   data-payload='${JSON.stringify(payload)}'
                   style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                   <i class="fas fa-bolt"></i>
@@ -1942,7 +1941,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
     } catch (err) {
       console.error("Reroll failed:", err);
-      ui.notifications.error("Could not reroll... :(");
+      ui.notifications.error(game.i18n.localize("SOTC.NotifyCouldNotReroll"));
     }
   });
 
@@ -1966,13 +1965,13 @@ Hooks.on("renderChatMessage", (message, html) => {
     btn.dataset.undone = "1";
     btn.style.opacity      = "0.4";
     btn.style.pointerEvents = "none";
-    btn.innerHTML = `<i class="fas fa-check"></i> Undone`;
+    btn.innerHTML = `<i class="fas fa-check"></i> ${game.i18n.localize("SOTC.ButtonUndone")}`;
 
     let snapshot;
     try {
       snapshot = JSON.parse(btn.dataset.snapshot);
     } catch(e) {
-      return ui.notifications.error("Undo failed: could not read snapshot.");
+      return ui.notifications.error(game.i18n.localize("SOTC.NotifyUndoFailed"));
     }
 
     const restoreActor = async (snap) => {
@@ -1991,7 +1990,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     await restoreActor(snapshot.target);
     await restoreActor(snapshot.attacker);
 
-    ui.notifications.info("Damage undone.");
+    ui.notifications.info(game.i18n.localize("SOTC.NotifyDamageUndone"));
   });
 
   // ── Apply status from chat mod line [+] button ──────────────────────────
@@ -2009,12 +2008,12 @@ Hooks.on("renderChatMessage", (message, html) => {
       game.items.find(i => i.type === "status" && i.name.toLowerCase() === statusName);
 
     if (!sourceStatus) {
-      return ui.notifications.warn(`No status item found for "${statusName}". Make sure it exists as a world item or on the actor.`);
+      return ui.notifications.warn(game.i18n.format("SOTC.NotifyNoStatusItem", {name: statusName}));
     }
 
     const targets = [...game.user.targets];
     if (!targets.length) {
-      return ui.notifications.warn("No target selected. Right-click a token and target it first.");
+      return ui.notifications.warn(game.i18n.localize("SOTC.NotifyNoTarget"));
     }
 
     // Determine how many stacks to apply
@@ -2026,17 +2025,17 @@ Hooks.on("renderChatMessage", (message, html) => {
       // No number found — ask the user
       stacksToAdd = await new Promise(resolve => {
         new Dialog({
-          title: `Apply ${sourceStatus.name}`,
+          title: game.i18n.format("SOTC.ApplyStatusTitle", {name: sourceStatus.name}),
           content: `
             <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
-              <label style="flex-shrink:0;">Stacks to apply:</label>
+              <label style="flex-shrink:0;">${game.i18n.localize("SOTC.ApplyStatusStacks")}</label>
               <input id="sotc-stack-input" type="number" min="1" value="1"
                 style="width:60px;" autofocus />
             </div>`,
           buttons: {
             apply: {
               icon: '<i class="fas fa-check"></i>',
-              label: "Apply",
+              label: game.i18n.localize("SOTC.ButtonApply"),
               callback: html => {
                 const val = Number(html.find("#sotc-stack-input").val());
                 resolve(val > 0 ? val : 1);
@@ -2044,7 +2043,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             },
             cancel: {
               icon: '<i class="fas fa-times"></i>',
-              label: "Cancel",
+              label: game.i18n.localize("SOTC.ButtonCancel"),
               callback: () => resolve(null)
             }
           },
@@ -2063,12 +2062,12 @@ Hooks.on("renderChatMessage", (message, html) => {
       if (existing) {
         const newCount = (Number(existing.system.count) || 0) + stacksToAdd;
         await existing.update({ "system.count": newCount });
-        ui.notifications.info(`${sourceStatus.name} on ${targetActor.name} → ${newCount}.`);
+        ui.notifications.info(game.i18n.format("SOTC.NotifyStatusStacks", {status: sourceStatus.name, actor: targetActor.name, count: newCount}));
       } else {
         const newItem = sourceStatus.toObject();
         newItem.system.count = stacksToAdd;
         await targetActor.createEmbeddedDocuments("Item", [newItem]);
-        ui.notifications.info(`Applied ${stacksToAdd}x ${sourceStatus.name} to ${targetActor.name}.`);
+        ui.notifications.info(game.i18n.format("SOTC.NotifyStatusApplied", {stacks: stacksToAdd, status: sourceStatus.name, actor: targetActor.name}));
       }
     }
   });
@@ -2170,12 +2169,12 @@ async function applyStats(actor, { dmg = 0, stagger = 0, staggerGain = 0 } = {})
 async function openDamageWizard(payload) {
   // Check permission — players need the setting enabled to use the wizard
   if (!game.user.isGM && !game.settings.get("sotc", "playerDamageWizard")) {
-    return ui.notifications.warn("The Damage Wizard is currently restricted to the GM.");
+    return ui.notifications.warn(game.i18n.localize("SOTC.NotifyDamageWizardGMOnly"));
   }
 
   const targets = Array.from(game.user.targets);
   if (!targets.length) {
-    return ui.notifications.warn("Select a target first!");
+    return ui.notifications.warn(game.i18n.localize("SOTC.NotifySelectTarget"));
   }
 
   const token   = targets[0];
@@ -2186,12 +2185,12 @@ async function openDamageWizard(payload) {
                    :                             "#1a5e35";
 
   const dieButtons = [
-    { value: "none",   label: "None",   icon: null,                                          color: "#444"    },
-    { value: "slash",  label: "Slash",  icon: "systems/sotc/assets/dice types/slash.png",   color: "#8b1a1a" },
-    { value: "pierce", label: "Pierce", icon: "systems/sotc/assets/dice types/pierce.png",  color: "#7a3a00" },
-    { value: "blunt",  label: "Blunt",  icon: "systems/sotc/assets/dice types/blunt.png",   color: "#5a4a00" },
-    { value: "block",  label: "Block",  icon: "systems/sotc/assets/dice types/block.png",   color: "#1a3f7a" },
-    { value: "evade",  label: "Evade",  icon: "systems/sotc/assets/dice types/evade.png",   color: "#1a5e35" },
+    { value: "none",   label: game.i18n.localize("SOTC.DieNone"),   icon: null,                                          color: "#444"    },
+    { value: "slash",  label: game.i18n.localize("SOTC.DieSlash"),  icon: "systems/sotc/assets/dice types/slash.png",   color: "#8b1a1a" },
+    { value: "pierce", label: game.i18n.localize("SOTC.DiePierce"), icon: "systems/sotc/assets/dice types/pierce.png",  color: "#7a3a00" },
+    { value: "blunt",  label: game.i18n.localize("SOTC.DieBlunt"),  icon: "systems/sotc/assets/dice types/blunt.png",   color: "#5a4a00" },
+    { value: "block",  label: game.i18n.localize("SOTC.DieBlock"),  icon: "systems/sotc/assets/dice types/block.png",   color: "#1a3f7a" },
+    { value: "evade",  label: game.i18n.localize("SOTC.DieEvade"),  icon: "systems/sotc/assets/dice types/evade.png",   color: "#1a5e35" },
   ];
 
   const btnHTML = dieButtons.map((b, i) => `
@@ -2249,11 +2248,11 @@ async function openDamageWizard(payload) {
   const critCheckboxHtml = _thornsItem ? [
     '<label style="' + LABEL_STYLE + ' flex-direction:row; align-items:center; gap:8px; margin-top:10px;">',
     '  <input type="checkbox" name="is_crit" style="width:16px; height:16px; cursor:pointer; margin:0;" />',
-    '  <span>Critical Hit',
+    '  <span>' + game.i18n.localize("SOTC.DamageWizardCritHit") + '',
     '    <span style="font-weight:400; color:#888; font-size:10px;">',
     '      <img src="' + (_thornsItem.img || 'systems/sotc/assets/statuses/Thorns.png') + '"',
     '           style="width:12px;height:12px;border:none;object-fit:contain;vertical-align:middle;margin-right:2px;">',
-    '      doubles Thorns damage &mdash; target has ' + _thornCount + ' Thorns',
+    '      ' + game.i18n.format("SOTC.DamageWizardCritThorns", {count: _thornCount}),
     '    </span>',
     '  </span>',
     '</label>',
@@ -2262,11 +2261,11 @@ async function openDamageWizard(payload) {
   const bleedCheckboxHtml = _bleedItem ? [
     '<label style="' + LABEL_STYLE + ' flex-direction:row; align-items:center; gap:8px; margin-top:8px;">',
     '  <input type="checkbox" name="suppress_bleed" style="width:16px; height:16px; cursor:pointer; margin:0;" />',
-    '  <span>Suppress Bleed',
+    '  <span>' + game.i18n.localize("SOTC.DamageWizardSuppressBleed") + '',
     '    <span style="font-weight:400; color:#888; font-size:10px;">',
     '      <img src="systems/sotc/assets/statuses/Bleed.png"',
     '           style="width:12px;height:12px;border:none;object-fit:contain;vertical-align:middle;margin-right:2px;">',
-    '      skip Bleed this attack &mdash; attacker has ' + _bleedCount + ' Bleed',
+    '      ' + game.i18n.format("SOTC.DamageWizardSuppressBleedHint", {count: _bleedCount}),
     '    </span>',
     '  </span>',
     '</label>',
@@ -2298,17 +2297,17 @@ async function openDamageWizard(payload) {
         <span class="sotc-wizard-total">${payload.total}</span>
       </div>
       <div class="sotc-section">
-        <label style="${LABEL_STYLE}">Check Modifier (Attacker's Roll)
+        <label style="${LABEL_STYLE}">${game.i18n.localize("SOTC.DamageWizardCheckMod")}
           <input type="number" name="mod" value="0" style="${INPUT_STYLE}" />
         </label>
-        <label style="${LABEL_STYLE} margin-bottom:6px;">Opposing Die Type</label>
+        <label style="${LABEL_STYLE} margin-bottom:6px;">${game.i18n.localize("SOTC.DamageWizardOpposingType")}</label>
         <input type="hidden" name="defender_die_type" value="none" />
         <div style="display:flex; gap:5px; margin-top:2px;">
           ${btnHTML}
         </div>
-        <label style="${LABEL_STYLE}">Opposing Die Roll
+        <label style="${LABEL_STYLE}">${game.i18n.localize("SOTC.DamageWizardOpposingRoll")}
           <input type="number" name="defender_die" value="0" min="0" style="${INPUT_STYLE}" />
-          <span class="sotc-wizard-hint">Leave at 0 for Unopposed</span>
+          <span class="sotc-wizard-hint">${game.i18n.localize("SOTC.DamageWizardUnopposedHint")}</span>
         </label>
         ${critCheckboxHtml}
         ${bleedCheckboxHtml}
@@ -2317,17 +2316,17 @@ async function openDamageWizard(payload) {
   `;
 
   new Dialog({
-    title: `Damage Wizard — ${payload.itemName}`,
+    title: game.i18n.format("SOTC.DamageWizardTitle", {item: payload.itemName}),
     content,
     buttons: {
       resolve: {
         icon: '<i class="fas fa-bolt"></i>',
-        label: "Resolve",
+        label: game.i18n.localize("SOTC.ButtonResolve"),
         callback: html => resolveDamage(payload, html, token)
       },
       cancel: {
         icon: '<i class="fas fa-times"></i>',
-        label: "Cancel"
+        label: game.i18n.localize("SOTC.ButtonCancel")
       }
     },
     default: "resolve"
@@ -2343,7 +2342,7 @@ async function openDamageWizard(payload) {
 async function resolveDamage(payload, html, targetToken) {
   // Re-check permission at resolve time in case setting changed mid-session
   if (!game.user.isGM && !game.settings.get("sotc", "playerDamageWizard")) {
-    return ui.notifications.warn("The Damage Wizard is currently restricted to the GM.");
+    return ui.notifications.warn(game.i18n.localize("SOTC.NotifyDamageWizardGMOnly"));
   }
 
   const targetActor  = targetToken.actor;
@@ -2394,28 +2393,28 @@ async function resolveDamage(payload, html, targetToken) {
           tStagger = Math.max(0, tStagger - defenderRoll);
         }
         resultLabel = clashResult === "win"
-          ? `Clash Win — dealt ${tDmg} damage and ${tStagger} stagger to ${targetActor.name}`
-          : `Unopposed — dealt ${tDmg} damage and ${tStagger} stagger to ${targetActor.name}`;
+          ? game.i18n.format("SOTC.DamageClashWinOffensive", {dmg: tDmg, stagger: tStagger, target: targetActor.name})
+          : game.i18n.format("SOTC.DamageUnopposedOffensive", {dmg: tDmg, stagger: tStagger, target: targetActor.name});
         break;
       }
 
-      case "tie": { resultLabel = "Clash Tie — no effect."; break; }
+      case "tie": { resultLabel = game.i18n.localize("SOTC.DamageClashTie"); break; }
 
       case "lose": {
         if (defIsBlock) {
           // Block [Clash Win]: STAGGER ONLY = block−offensive, NO HP
           aStagger = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Clash Lose vs Block — ${targetActor.name}'s block dealt ${aStagger} stagger to ${attackerActor?.name ?? "attacker"} (no HP damage)`;
+          resultLabel = game.i18n.format("SOTC.DamageClashLoseBlock", {defender: targetActor.name, stagger: aStagger, attacker: attackerActor?.name ?? "attacker"});
         } else if (defIsEvade) {
           // Evade [Win vs Offensive]: recycled, no stats
-          resultLabel = `Clash Lose vs Evade — ${targetActor.name}'s evade recycled! No damage. They may re-deploy it.`;
+          resultLabel = game.i18n.format("SOTC.DamageClashLoseEvade", {defender: targetActor.name});
         } else if (defIsOffensive && attackerActor) {
           // Offensive vs offensive — apply affinities to attacker
           const defBase = normaliseType(defenderType);
           [aDmg, aStagger] = applyAffinities(attackerActor, defBase, defenderRoll, defenderRoll);
-          resultLabel = `Clash Lose vs Offensive — ${attackerActor.name} takes ${aDmg} damage and ${aStagger} stagger`;
+          resultLabel = game.i18n.format("SOTC.DamageClashLoseOffensive", {attacker: attackerActor.name, dmg: aDmg, stagger: aStagger});
         } else {
-          resultLabel = "Clash Lose — no effect.";
+          resultLabel = game.i18n.localize("SOTC.DamageClashLose");
         }
         break;
       }
@@ -2434,36 +2433,36 @@ async function resolveDamage(payload, html, targetToken) {
           const net = Math.max(0, attackPower - defenderRoll);
           tDmg     = net;
           tStagger = net;
-          resultLabel = `Block Clash Win vs Offensive — dealt ${tDmg} damage and ${tStagger} stagger to ${targetActor.name}`;
+          resultLabel = game.i18n.format("SOTC.DamageBlockWinOffensive", {dmg: tDmg, stagger: tStagger, target: targetActor.name});
         } else {
           // Block wins vs block/evade/none: stagger only
           tStagger = Math.max(0, attackPower - defenderRoll);
-          resultLabel = `Block Clash Win — dealt ${tStagger} stagger to ${targetActor.name}`;
+          resultLabel = game.i18n.format("SOTC.DamageBlockWin", {stagger: tStagger, target: targetActor.name});
         }
         break;
       }
 
-      case "tie": { resultLabel = "Block Clash Tie — no effect."; break; }
+      case "tie": { resultLabel = game.i18n.localize("SOTC.DamageBlockTie"); break; }
 
       case "lose": {
         if (defIsOffensive && attackerActor) {
           const defBase  = normaliseType(defenderType);
           const netPower = Math.max(0, defenderRoll - attackPower);
           [aDmg, aStagger] = applyAffinities(attackerActor, defBase, netPower, netPower);
-          resultLabel = `Block Clash Lose vs Offensive — blocked ${attackPower}, ${attackerActor.name} takes net ${aDmg} damage and ${aStagger} stagger`;
+          resultLabel = game.i18n.format("SOTC.DamageBlockLoseOffensive", {blocked: attackPower, attacker: attackerActor.name, dmg: aDmg, stagger: aStagger});
         } else if (defIsEvade) {
           // Evade [Win vs Defensive]: target regains stagger = evade−block
           tStaggerGain = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Block Clash Lose vs Evade — ${targetActor.name}'s evade wins, they regain ${tStaggerGain} stagger`;
+          resultLabel = game.i18n.format("SOTC.DamageBlockLoseEvade", {defender: targetActor.name, stagger: tStaggerGain});
         } else {
-          resultLabel = "Block Clash Lose — no effect.";
+          resultLabel = game.i18n.localize("SOTC.DamageBlockLose");
         }
         break;
       }
 
       case "unopposed": {
         await targetToken.actor.setFlag("sotc", "savedBlock", { power: attackPower, source: payload.itemName });
-        resultLabel = `Block Unopposed — die saved for later this scene (power: ${attackPower})`;
+        resultLabel = game.i18n.format("SOTC.DamageBlockUnopposed", {power: attackPower});
         break;
       }
     }
@@ -2477,16 +2476,16 @@ async function resolveDamage(payload, html, targetToken) {
 
       case "win": {
         if (defIsOffensive) {
-          resultLabel = `Evade Clash Win vs Offensive — die recycled! No other Clash Win effects trigger.`;
+          resultLabel = game.i18n.localize("SOTC.DamageEvadeWinOffensive");
         } else {
           // The evader is attackerActor (they rolled the evade die)
           aStaggerGain = Math.max(0, attackPower - defenderRoll);
-          resultLabel  = `Evade Clash Win vs Defensive — ${attackerActor?.name ?? "Evader"} regains ${aStaggerGain} stagger`;
+          resultLabel  = game.i18n.format("SOTC.DamageEvadeWinDefensive", {evader: attackerActor?.name ?? "Evader", stagger: aStaggerGain});
         }
         break;
       }
 
-      case "tie": { resultLabel = "Evade Clash Tie — no effect."; break; }
+      case "tie": { resultLabel = game.i18n.localize("SOTC.DamageEvadeTie"); break; }
 
       case "lose": {
         if (defIsOffensive && attackerActor) {
@@ -2496,23 +2495,23 @@ async function resolveDamage(payload, html, targetToken) {
           const [, affStagger] = applyAffinities(attackerActor, defBase, 0, netStagger);
           aDmg     = rawDmg;
           aStagger = affStagger;
-          resultLabel = `Evade Clash Lose vs Offensive — evade absorbed ${attackPower} stagger, ${attackerActor.name} takes ${aDmg} HP and ${aStagger} stagger`;
+          resultLabel = game.i18n.format("SOTC.DamageEvadeLoseOffensive", {absorbed: attackPower, attacker: attackerActor.name, dmg: aDmg, stagger: aStagger});
         } else if (defIsBlock) {
           // Evade loses vs Block: attacker (evader) takes stagger = block − evade
           aStagger = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Evade Clash Lose vs Block — ${attackerActor?.name ?? "Evader"} takes ${aStagger} stagger`;
+          resultLabel = game.i18n.format("SOTC.DamageEvadeLoseBlock", {evader: attackerActor?.name ?? "Evader", stagger: aStagger});
         } else if (defIsEvade) {
           tStaggerGain = Math.max(0, defenderRoll - attackPower);
-          resultLabel = `Evade Clash Lose vs Evade — ${targetActor.name}'s evade wins, they regain ${tStaggerGain} stagger`;
+          resultLabel = game.i18n.format("SOTC.DamageEvadeLoseEvade", {defender: targetActor.name, stagger: tStaggerGain});
         } else {
-          resultLabel = "Evade Clash Lose — no effect.";
+          resultLabel = game.i18n.localize("SOTC.DamageEvadeLose");
         }
         break;
       }
 
       case "unopposed": {
         await targetToken.actor.setFlag("sotc", "savedEvade", { power: attackPower, source: payload.itemName });
-        resultLabel = `Evade Unopposed — die saved for later this scene (power: ${attackPower})`;
+        resultLabel = game.i18n.format("SOTC.DamageEvadeUnopposed", {power: attackPower});
         break;
       }
     }
@@ -2561,8 +2560,7 @@ async function resolveDamage(payload, html, targetToken) {
       bleedStatLines.push(
         '<span style="color:#c03030;display:flex;align-items:center;gap:4px;">' +
         '<img src="systems/sotc/assets/statuses/Bleed.png" style="width:16px;height:16px;border:none;object-fit:contain;"> ' +
-        'Bleed ' + bleedDmg + ' HP \u2192 ' + attackerActor.name +
-        ' (Bleed ' + bleedDmg + '\u2192' + (bleedDmg - 1) + ')' +
+        game.i18n.format("SOTC.DamageStatBleed", {dmg: bleedDmg, actor: attackerActor.name, from: bleedDmg, to: bleedDmg - 1}) +
         '</span>'
       );
     }
@@ -2585,7 +2583,7 @@ async function resolveDamage(payload, html, targetToken) {
       if (isCrit) thornsDmg *= 2;
       await applyStats(attackerActor, { dmg: thornsDmg });
       thornsStatLines.push(
-        `<span style="color:#e07030;display:flex;align-items:center;gap:4px;"><img src="${thorns.img || 'systems/sotc/assets/statuses/Thorns.png'}" style="width:16px;height:16px;border:none;object-fit:contain;"> ${thorns.name} (${isCrit ? "CRIT × 2 = " + thornsDmg : thornsDmg}) HP → ${attackerActor.name}</span>`
+        `<span style="color:#e07030;display:flex;align-items:center;gap:4px;"><img src="${thorns.img || 'systems/sotc/assets/statuses/Thorns.png'}" style="width:16px;height:16px;border:none;object-fit:contain;"> ${game.i18n.format("SOTC.DamageStatThorns", {name: thorns.name, dmg: isCrit ? game.i18n.format("SOTC.DamageStatThornsCrit", {dmg: thornsDmg}) : thornsDmg, actor: attackerActor.name})}</span>`
       );
     }
   }
@@ -2606,22 +2604,27 @@ async function resolveDamage(payload, html, targetToken) {
       const newEp     = Math.min(maxEp, currentEp + 1);
       if (newEp > currentEp) {
         await game.sotc.updateActor(a, { emotion: newEp - currentEp });
-        epStatLines.push(`<span style="color:#c9a227;">+1 EP → ${a.name}</span>`);
+        epStatLines.push(`<span style="color:#c9a227;">${game.i18n.format("SOTC.DamageStatEP", {actor: a.name})}</span>`);
       }
     }
   }
 
   // ── Chat result message ───────────────────────────────────────────────────
-  const clashLabel = { win: "Clash Win", tie: "Clash Tie", lose: "Clash Lose", unopposed: "Unopposed" }[clashResult];
+  const clashLabel = {
+    win: game.i18n.localize("SOTC.ClashWin"),
+    tie: game.i18n.localize("SOTC.ClashTie"),
+    lose: game.i18n.localize("SOTC.ClashLose"),
+    unopposed: game.i18n.localize("SOTC.ClashUnopposed")
+  }[clashResult];
   const clashColor = { win: "#4caf7d", tie: "#c9a227", lose: "#e05050", unopposed: "#aaa" }[clashResult];
 
   const statLines = [];
-  if (tDmg        > 0) statLines.push(`<span style="color:#e05050;">${tDmg} HP → ${targetActor.name}</span>`);
-  if (tStagger    > 0) statLines.push(`<span style="color:#e0943a;">${tStagger} stagger → ${targetActor.name}</span>`);
-  if (tStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">+${tStaggerGain} stagger regained by ${targetActor.name}</span>`);
-  if (aDmg        > 0) statLines.push(`<span style="color:#e05050;">${aDmg} HP → ${attackerActor?.name}</span>`);
-  if (aStagger    > 0) statLines.push(`<span style="color:#e0943a;">${aStagger} stagger → ${attackerActor?.name}</span>`);
-  if (aStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">+${aStaggerGain} stagger regained by ${attackerActor?.name}</span>`);
+  if (tDmg        > 0) statLines.push(`<span style="color:#e05050;">${game.i18n.format("SOTC.DamageStatHP", {value: tDmg, actor: targetActor.name})}</span>`);
+  if (tStagger    > 0) statLines.push(`<span style="color:#e0943a;">${game.i18n.format("SOTC.DamageStatStagger", {value: tStagger, actor: targetActor.name})}</span>`);
+  if (tStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">${game.i18n.format("SOTC.DamageStatStaggerRegain", {value: tStaggerGain, actor: targetActor.name})}</span>`);
+  if (aDmg        > 0) statLines.push(`<span style="color:#e05050;">${game.i18n.format("SOTC.DamageStatHP", {value: aDmg, actor: attackerActor?.name})}</span>`);
+  if (aStagger    > 0) statLines.push(`<span style="color:#e0943a;">${game.i18n.format("SOTC.DamageStatStagger", {value: aStagger, actor: attackerActor?.name})}</span>`);
+  if (aStaggerGain> 0) statLines.push(`<span style="color:#4caf7d;">${game.i18n.format("SOTC.DamageStatStaggerRegain", {value: aStaggerGain, actor: attackerActor?.name})}</span>`);
   statLines.push(...epStatLines);
   statLines.push(...bleedStatLines);
   statLines.push(...thornsStatLines);
@@ -2633,11 +2636,11 @@ async function resolveDamage(payload, html, targetToken) {
   // Build compact stat summary for the always-visible summary bar
   const previewStats = [];
   if (tDmg > 0)         previewStats.push(`<span style="color:#e05050;">${tDmg} HP</span>`);
-  if (tStagger > 0)     previewStats.push(`<span style="color:#e0943a;">${tStagger} stagger</span>`);
-  if (aDmg > 0)         previewStats.push(`<span style="color:#e05050;">${aDmg} HP → ${attackerActor?.name}</span>`);
-  if (aStagger > 0)     previewStats.push(`<span style="color:#e0943a;">${aStagger} stagger → ${attackerActor?.name}</span>`);
-  if (tStaggerGain > 0) previewStats.push(`<span style="color:#4caf7d;">+${tStaggerGain} stagger back</span>`);
-  if (aStaggerGain > 0) previewStats.push(`<span style="color:#4caf7d;">+${aStaggerGain} stagger back</span>`);
+  if (tStagger > 0)     previewStats.push(`<span style="color:#e0943a;">${game.i18n.format("SOTC.DamageStatStaggerShort", {value: tStagger})}</span>`);
+  if (aDmg > 0)         previewStats.push(`<span style="color:#e05050;">${game.i18n.format("SOTC.DamageStatHP", {value: aDmg, actor: attackerActor?.name})}</span>`);
+  if (aStagger > 0)     previewStats.push(`<span style="color:#e0943a;">${game.i18n.format("SOTC.DamageStatStagger", {value: aStagger, actor: attackerActor?.name})}</span>`);
+  if (tStaggerGain > 0) previewStats.push(`<span style="color:#4caf7d;">${game.i18n.format("SOTC.DamageStatStaggerBack", {value: tStaggerGain})}</span>`);
+  if (aStaggerGain > 0) previewStats.push(`<span style="color:#4caf7d;">${game.i18n.format("SOTC.DamageStatStaggerBack", {value: aStaggerGain})}</span>`);
 
   const previewPill = `
     <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -2656,7 +2659,7 @@ async function resolveDamage(payload, html, targetToken) {
       ${hasEffect ? `
         <a class="sotc-undo-damage" data-snapshot='${snapshotJson}'
            style="display:inline-flex; align-items:center; gap:5px; background:#2a1a1a; border:1px solid #6b2a2a; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; color:#e07070; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer; text-decoration:none; margin-top:4px;">
-          <i class="fas fa-rotate-left"></i> Undo
+          <i class="fas fa-rotate-left"></i> ${game.i18n.localize("SOTC.ButtonUndo")}
         </a>` : ""}
     </div>`;
 
@@ -2689,7 +2692,7 @@ async function resolveDamage(payload, html, targetToken) {
             <i class="fas fa-chevron-down sotc-clash-chevron" style="font-size:10px; color:#888; transition:transform 0.15s;"></i>
             <strong style="color:#e8d9a0; font-size:14px;">${payload.itemName}</strong>
           </div>
-          <span style="color:#aaa; font-size:11px;">vs ${targetActor.name}</span>
+          <span style="color:#aaa; font-size:11px;">${game.i18n.format("SOTC.ClashVs", {name: targetActor.name})}</span>
         </div>
         <div class="sotc-clash-summary" style="margin-bottom:4px;">${previewPill}</div>
         <div class="sotc-clash-rows" data-collapsed="false">${dieRow}</div>
