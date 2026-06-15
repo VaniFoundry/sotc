@@ -35,6 +35,20 @@ export class SotCSkillSheet extends foundry.appv1.sheets.ItemSheet {
       secrets: this.document.isOwner,
       async: true
     });
+
+    // Enrich skill_modules.mods text for the preview (view mode only)
+    const rawMods = context.systemData.skill_modules?.mods ?? "";
+    context.enrichedMods = enrichModWithStatusIcons(rawMods, this.actor);
+
+    // Enrich each die's mods inline so {{die.enrichedMods}} works in the template
+    const rawDie = context.systemData.dice?.die;
+    const dieArr = rawDie ? (Array.isArray(rawDie) ? rawDie : Object.values(rawDie)) : [];
+    dieArr.forEach(die => {
+      const mods = die.mods ?? {};
+      const modArr = Array.isArray(mods) ? mods : Object.values(mods);
+      die.enrichedMods = modArr.map(m => enrichModWithStatusIcons(m, this.actor));
+    });
+
     return context;
   }
 

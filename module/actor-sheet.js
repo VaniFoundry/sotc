@@ -6,7 +6,7 @@ import {ATTRIBUTE_TYPES} from "./constants.js";
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
  */
-export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
+export class SotCActorSheet extends ActorSheet {
 
   /** @inheritdoc */
   static get defaultOptions() {
@@ -452,6 +452,12 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-bolt"></i>
                       </a>
+                      <a class="send-to-wizard"
+                        title="Send to open Damage Wizard as opposing die"
+                        data-payload='${JSON.stringify(payload)}'
+                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                        <i class="fas fa-crosshairs"></i>
+                      </a>
                     </div>
                   </span>
                   ${moduleLine ? `${moduleLine}` : ""}
@@ -709,6 +715,12 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-bolt"></i>
                       </a>
+                      <a class="send-to-wizard"
+                        title="Send to open Damage Wizard as opposing die"
+                        data-payload='${JSON.stringify(payload)}'
+                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
+                        <i class="fas fa-crosshairs"></i>
+                      </a>
                     </div>
                   </span>
                   ${moduleLine ? `${moduleLine}` : ""}
@@ -760,7 +772,20 @@ export class SotCActorSheet extends foundry.appv1.sheets.ActorSheet {
     }
 
     if (button.classList.contains("edit-status_card")) {
-      item.sheet.render({ force: true });
+      console.log("SOTC STATUS | edit button clicked", {
+        itemId, itemName: item?.name, itemType: item?.type,
+        editable: this.isEditable,
+        sheet: !!item.sheet,
+        sheetClass: item.sheet?.constructor?.name,
+        sheetState: item.sheet?._state
+      });
+      try {
+        await item.sheet.render({ force: true });
+        console.log("SOTC STATUS | render() call returned without throwing");
+      } catch(err) {
+        console.error("SOTC STATUS | render() THREW:", err);
+        ui.notifications.error("Status sheet failed to open: " + err.message);
+      }
       return;
     }
 

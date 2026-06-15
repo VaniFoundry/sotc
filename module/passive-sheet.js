@@ -1,11 +1,11 @@
-import { EntitySheetHelper } from "./helper.js";
+import { EntitySheetHelper, enrichModWithStatusIcons } from "./helper.js";
 import {ATTRIBUTE_TYPES} from "./constants.js";
 
 /**
  * Extend the basic ItemSheet with some very simple modifications
  * @extends {ItemSheet}
  */
-export class SotCPassiveSheet extends ItemSheet {
+export class SotCPassiveSheet extends foundry.appv1.sheets.ItemSheet {
 
   /** @inheritdoc */
   static get defaultOptions() {
@@ -31,12 +31,13 @@ export class SotCPassiveSheet extends ItemSheet {
     const fv = game.version ?? game?.data?.version;
     const use_v13 = foundry.utils.isNewerVersion(fv, "12.999");
     if (use_v13) {
-      context.detailsHTML = context.systemData.details
+      context.detailsHTML = enrichModWithStatusIcons(context.systemData.details ?? "", this.actor);
     } else {
-      context.detailsHTML = await TextEditor.enrichHTML(context.systemData.details ?? "", {
+      const enriched = await TextEditor.enrichHTML(context.systemData.details ?? "", {
         secrets: this.document.isOwner,
         async: true
       });
+      context.detailsHTML = enrichModWithStatusIcons(enriched, this.actor);
     }
     return context;
   }
@@ -55,9 +56,11 @@ export class SotCPassiveSheet extends ItemSheet {
 
   async _printPassive(item) {
     const name = item.name;
-    const details = item.system.details ?? "";
+    const rawDetails = item.system.details ?? "";
+    // Enrich details with status icons so keywords like "Burn", "Bleed" show inline icons
+    const actor = item.actor ?? game.actors.find(a => a.items.has(item.id));
+    const details = enrichModWithStatusIcons(rawDetails, actor);
 
-    // Please make sure to also match this up to the actor-sheet.js details
     const content = `
       <div class="sotc-passive-card">
         <h3 style="margin:0; color: black; text-shadow: 1px 1px 2px white;">
@@ -66,7 +69,6 @@ export class SotCPassiveSheet extends ItemSheet {
         <div class="sotc-passive-details">${details}</div>
       </div>
     `;
-
 
     return ChatMessage.create({
       user: game.user.id,

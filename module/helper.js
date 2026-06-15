@@ -642,15 +642,17 @@ export class EntitySheetHelper {
 export function enrichModWithStatusIcons(text, actor) {
   const statusMap = new Map();   // name → { img, applyable }
 
+  const encodeImg = src => src ? src.replace(/ /g, "%20") : src;
+
   // World items first (lower priority) — these get a [+] apply button
   game.items.filter(i => i.type === "status").forEach(i => {
-    if (i.name) statusMap.set(i.name.toLowerCase(), { img: i.img, applyable: true });
+    if (i.name) statusMap.set(i.name.toLowerCase(), { img: encodeImg(i.img), applyable: true });
   });
 
   // Actor's own items override (higher priority — may have custom art)
   if (actor) {
     actor.items.filter(i => i.type === "status").forEach(i => {
-      if (i.name) statusMap.set(i.name.toLowerCase(), { img: i.img, applyable: true });
+      if (i.name) statusMap.set(i.name.toLowerCase(), { img: encodeImg(i.img), applyable: true });
     });
   }
 
@@ -659,29 +661,45 @@ export function enrichModWithStatusIcons(text, actor) {
     const customKeywords = JSON.parse(game.settings.get("sotc", "chatKeywords") || "[]");
     for (const kw of customKeywords) {
       if (kw.name && !statusMap.has(kw.name.toLowerCase())) {
-        statusMap.set(kw.name.toLowerCase(), { img: kw.img, applyable: false });
+        statusMap.set(kw.name.toLowerCase(), { img: encodeImg(kw.img), applyable: false });
       }
     }
   } catch { /* settings not ready yet */ }
 
-  let enriched = text;
-  for (const [name, { img, applyable }] of statusMap) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Capture an optional leading number (e.g. "3 Burn" → count=3)
-    const regex = new RegExp(`(?<![\\w])(\\d+\\s+)?(${escaped})(?![\\w])`, "gi");
-    enriched = enriched.replace(regex, (match, numPart, namePart) => {
+  // Sort longest names first so "Charge Barrier" matches before "Charge"
+  const sortedEntries = [...statusMap.entries()].sort((a, b) => b[0].length - a[0].length);
+
+  // Build a single combined regex that matches all keywords in one pass (longest first).
+  // Single-pass prevents "Charge" from matching inside an already-replaced "Charge Barrier".
+  function enrichPlainText(segment) {
+    if (!sortedEntries.length) return segment;
+
+    // Build alternation pattern — longest entries first guarantee greedy longest match
+    const pattern = sortedEntries
+      .map(([name]) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+    const combined = new RegExp(`(?<![\\w])(\\d+\\s+)?(${pattern})(?![\\w])`, "gi");
+
+    return segment.replace(combined, (match, numPart, namePart) => {
+      const key = namePart.toLowerCase();
+      const entry = statusMap.get(key);
+      if (!entry) return match;
+      const { img, applyable } = entry;
       const count = numPart ? numPart.trim() : "";
+      const safeNamePart = namePart.replace(/"/g, "&quot;");
       const iconHtml = img
-        ? `<img src="${img}" alt="${namePart}" title="${namePart}" style="height:1em;width:1em;vertical-align:text-bottom;border:none;display:inline;">`
+        ? `<img src="${img}" alt="${safeNamePart}" title="${safeNamePart}" style="height:1em;width:1em;vertical-align:text-bottom;border:none;display:inline;">`
         : "";
       const applyBtn = applyable
-        ? `<a class="apply-status-from-chat" data-status-name="${name}" data-status-count="${count}" title="Apply ${match.trim()} to target" style="margin-left:3px;cursor:pointer;color:#c9a227;font-size:11px;font-weight:bold;">[+]</a>`
+        ? `<a class="apply-status-from-chat" data-status-name="${key}" data-status-count="${count}" title="Apply ${match.trim()} to target" style="margin-left:3px;cursor:pointer;color:#c9a227;font-size:11px;font-weight:bold;">[+]</a>`
         : "";
-      // Render the number part (if any) before the icon+name
-      const numHtml = numPart ? `${numPart}` : "";
-      return `${numHtml}${iconHtml}<strong>${namePart}</strong>${applyBtn}`;
+      return `${numPart ?? ""}${iconHtml}<strong>${namePart}</strong>${applyBtn}`;
     });
   }
+
+  // Split on HTML tags so we only enrich plain-text nodes, never tag attributes
+  const parts = text.split(/(<[^>]*>)/);
+  const enriched = parts.map((part, i) => i % 2 === 0 ? enrichPlainText(part) : part).join("");
 
   return enriched;
 }

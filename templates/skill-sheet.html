@@ -97,7 +97,7 @@
                     {{#if sheetEditMode}}
                     <textarea type="text" name="system.skill_modules.mods" placeholder="[On Use] ...">{{systemData.skill_modules.mods}}</textarea>
                     {{else}}
-                    <span class="system.skill_modules.mods" style="width: 100%; height: auto; overflow-wrap: break-word; white-space: pre-line; color: white;">{{systemData.skill_modules.mods}}</span>
+                    <span class="system.skill_modules.mods" style="width: 100%; height: auto; overflow-wrap: break-word; white-space: pre-line; color: white;">{{{enrichedMods}}}</span>
                     {{/if}}
                 </div>
                 <!-- I have decided that separating skill modules into multiple textareas is silly! As such, they shall be grouped together for now.
@@ -142,8 +142,8 @@
                                 <img src="systems/sotc/assets/dice types/{{die.type}}.png" class="skill-die-button rollable" data-index="{{i}}" style="width: auto; height: 45px; border: none; cursor: pointer;"/>
                                 <div class="die-formula die-color-{{die.type}}" style="vertical-align: middle; margin-right: 5px;"><span>{{die.formula}}</span></div>
                                 <div class="displayed_dice_mods">
-                                    {{#each die.mods as |mods j| }}
-                                    <span class="system.dice.die.{{@../index}}.mods.{{j}}">{{mods}}</span>
+                                    {{#each die.enrichedMods as |enrichedMod j| }}
+                                    <span class="system.dice.die.{{@../index}}.mods.{{j}}">{{{enrichedMod}}}</span>
                                     {{/each}}
                                 </div>
                             </div>
