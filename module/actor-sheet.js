@@ -3,6 +3,38 @@ import { SotCStatusSheet } from "./status-sheet.js";
 import {ATTRIBUTE_TYPES} from "./constants.js";
 
 /**
+ * Walk an HTML string, apply enrichModWithStatusIcons only to text nodes,
+ * and return the result. This preserves ProseMirror tag structure while
+ * still injecting status icons and [+] buttons into visible text content.
+ * Running enrichModWithStatusIcons directly on raw HTML corrupts tags because
+ * the regex matches inside attribute values and across tag boundaries.
+ */
+function _enrichHtmlTextNodes(html, actor) {
+  if (!html) return "";
+  const div = document.createElement("div");
+  div.innerHTML = html;
+
+  function walk(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const enriched = enrichModWithStatusIcons(node.textContent, actor);
+      if (enriched !== node.textContent) {
+        // Replace this text node with a span containing the enriched HTML
+        const span = document.createElement("span");
+        span.innerHTML = enriched;
+        node.parentNode.replaceChild(span, node);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      // Process children — collect first because replaceChild mutates childNodes
+      const children = [...node.childNodes];
+      for (const child of children) walk(child);
+    }
+  }
+
+  walk(div);
+  return div.innerHTML;
+}
+
+/**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
  */
@@ -34,7 +66,20 @@ export class SotCActorSheet extends ActorSheet {
     context.skills = this.actor.items.filter(i => i.type === "skill");
     context.egos = this.actor.items.filter(i => i.type === "ego");
     context.statuses = this.actor.items.filter(i => i.type === "status");
-    context.passives = this.actor.items.filter(i => i.type === "passive");
+    // Passives: convert to plain objects so we can safely attach detailsHTML
+    // without mutating live Item documents (which never reach the template).
+    context.passives = this.actor.items
+      .filter(i => i.type === "passive")
+      .map(i => i.toObject());
+
+    // Build the slotted EGO bar data — one entry per risk rank in order
+    const EGO_RANKS = ["zayin", "teth", "heh", "waw", "aleph"];
+    const slots     = context.systemData.ego_slots ?? {};
+    context.egoSlots = EGO_RANKS.map(rank => {
+      const id  = slots[rank] ?? "";
+      const ego = id ? this.actor.items.get(id) : null;
+      return { rank, id, ego: ego ? ego.toObject() : null };
+    });
 
     // Make these elements from actor-sheet.html render properly. I'm not sure if I even need these, didn't I switch to prosemirrors?
     // Look at this idiot. Not a knower at all. Yeah they're prosemirrors, but they need to have some rendering done for v11-12 (and not for v13)
@@ -44,10 +89,21 @@ export class SotCActorSheet extends ActorSheet {
       context.biographyHTML = context.systemData.biography ?? "";
       context.battle1HTML = context.systemData.battle_ability_1?.details ?? "";
       context.battle2HTML = context.systemData.battle_ability_2?.details ?? "";
+      // Enrich passive details so they render correctly in the actor sheet.
+      // enrichModWithStatusIcons expects plain text, not HTML — running it on
+      // ProseMirror HTML causes it to corrupt tags. Instead we parse the HTML,
+      // walk only text nodes, enrich each one, and re-serialise.
+      for (const passive of context.passives) {
+        passive.detailsHTML = _enrichHtmlTextNodes(passive.system.details ?? "", this.actor);
+      }
     } else {
       context.biographyHTML = await TextEditor.enrichHTML(context.systemData.biography ?? "", {async: true});
       context.battle1HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_1?.details ?? "", {async: true});
       context.battle2HTML = await TextEditor.enrichHTML(context.systemData.battle_ability_2?.details ?? "", {async: true});
+      for (const passive of context.passives) {
+        const enriched = await TextEditor.enrichHTML(passive.system.details ?? "", {async: true});
+        passive.detailsHTML = _enrichHtmlTextNodes(enriched, this.actor);
+      }
     }
     return context;
   }
@@ -82,6 +138,12 @@ export class SotCActorSheet extends ActorSheet {
     html.find(".skill_card, .passive_card").each((i, card) => {
       card.addEventListener("dragstart", ev => this._onDragItem(ev));
     });
+
+    // ── EGO slot bar ────────────────────────────────────────────────────────
+    // Click a filled slot → clear it. Click an empty slot → open picker.
+    html.find(".ego_slot").on("click", ev => this._onEgoSlotClick(ev));
+    // Slot button on an EGO card → slot that EGO into its risk rank slot
+    html.find(".ego-slot-btn").on("click", ev => this._onEgoSlotBtn(ev));
 
     // Time to uhh, finally implement the other part of the system. You can tell what this does, I hope
     html.find(".roll-might").click(ev => this._onAttributeRoll(ev, "might"));
@@ -198,6 +260,103 @@ export class SotCActorSheet extends ActorSheet {
   }
 
   /* -------------------------------------------- */
+
+  /** Slot bar click — toggle slot or open picker */
+  async _onEgoSlotClick(ev) {
+    ev.preventDefault();
+    const rank    = ev.currentTarget.dataset.rank;
+    const current = this.actor.system.ego_slots?.[rank] ?? "";
+
+    if (current) {
+      // Filled — clear on click
+      await this.actor.update({ [`system.ego_slots.${rank}`]: "" });
+    } else {
+      // Empty — pick from egos that match this risk rank (case-insensitive)
+      const candidates = this.actor.items.filter(i =>
+        i.type === "ego" &&
+        (i.system.risk ?? "").toLowerCase().startsWith(rank.toLowerCase())
+      );
+
+      if (!candidates.length) {
+        return ui.notifications.warn(`No EGO with risk rank "${rank}" found on this actor.`);
+      }
+
+      // If only one candidate, slot it immediately
+      if (candidates.length === 1) {
+        return this.actor.update({ [`system.ego_slots.${rank}`]: candidates[0].id });
+      }
+
+      // Multiple candidates — show a small picker dialog
+      const options = candidates.map(e =>
+        `<option value="${e.id}">${e.name}</option>`
+      ).join("");
+      new Dialog({
+        title: `Slot ${rank.charAt(0).toUpperCase() + rank.slice(1)} EGO`,
+        content: `<div style="padding:8px;">
+          <label style="display:block;margin-bottom:6px;color:#c9a227;">Choose an EGO to slot:</label>
+          <select id="ego-slot-pick" style="width:100%;">${options}</select>
+        </div>`,
+        buttons: {
+          slot: {
+            icon: '<i class="fas fa-compress-arrows-alt"></i>',
+            label: "Slot",
+            callback: html => {
+              const id = html.find("#ego-slot-pick").val();
+              this.actor.update({ [`system.ego_slots.${rank}`]: id });
+            }
+          },
+          clear: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Clear slot",
+            callback: () => this.actor.update({ [`system.ego_slots.${rank}`]: "" })
+          }
+        },
+        default: "slot"
+      }).render({ force: true });
+    }
+  }
+
+  /** Slot button on an EGO card — reads the risk field and slots into that rank */
+  async _onEgoSlotBtn(ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const itemId = ev.currentTarget.dataset.itemId;
+    const item   = this.actor.items.get(itemId);
+    if (!item) return;
+
+    const EGO_RANKS   = ["zayin", "teth", "heh", "waw", "aleph"];
+    const riskRaw     = (item.system.risk ?? "").toLowerCase().trim();
+    const matchedRank = EGO_RANKS.find(r => riskRaw.startsWith(r));
+
+    if (!matchedRank) {
+      // Risk field doesn't match a known rank — ask which slot to use
+      const options = EGO_RANKS.map(r =>
+        `<option value="${r}">${r.charAt(0).toUpperCase() + r.slice(1)}</option>`
+      ).join("");
+      new Dialog({
+        title: `Slot "${item.name}"`,
+        content: `<div style="padding:8px;">
+          <p style="color:#aaa;margin-bottom:8px;">Risk rank not recognised. Choose a slot:</p>
+          <select id="ego-rank-pick" style="width:100%;">${options}</select>
+        </div>`,
+        buttons: {
+          slot: {
+            icon: '<i class="fas fa-compress-arrows-alt"></i>',
+            label: "Slot",
+            callback: html => {
+              const rank = html.find("#ego-rank-pick").val();
+              this.actor.update({ [`system.ego_slots.${rank}`]: item.id });
+            }
+          },
+          cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancel" }
+        },
+        default: "slot"
+      }).render({ force: true });
+    } else {
+      await this.actor.update({ [`system.ego_slots.${matchedRank}`]: item.id });
+      ui.notifications.info(`${item.name} slotted as ${matchedRank.charAt(0).toUpperCase() + matchedRank.slice(1)} EGO.`);
+    }
+  }
 
   async _onRollFullSkill(event) {
     event.preventDefault();
@@ -451,12 +610,6 @@ export class SotCActorSheet extends ActorSheet {
                         data-payload='${JSON.stringify(payload)}'
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-bolt"></i>
-                      </a>
-                      <a class="send-to-wizard"
-                        title="Send to open Damage Wizard as opposing die"
-                        data-payload='${JSON.stringify(payload)}'
-                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
-                        <i class="fas fa-crosshairs"></i>
                       </a>
                     </div>
                   </span>
@@ -715,12 +868,6 @@ export class SotCActorSheet extends ActorSheet {
                         style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
                         <i class="fas fa-bolt"></i>
                       </a>
-                      <a class="send-to-wizard"
-                        title="Send to open Damage Wizard as opposing die"
-                        data-payload='${JSON.stringify(payload)}'
-                        style="width: 16px; height: 16px; color: black; margin-left: 8px; margin-top: 4px;">
-                        <i class="fas fa-crosshairs"></i>
-                      </a>
                     </div>
                   </span>
                   ${moduleLine ? `${moduleLine}` : ""}
@@ -958,10 +1105,14 @@ export class SotCActorSheet extends ActorSheet {
   }
 
   async _printPassive(item) {
-    const name = item.name;
-    const details = item.system.details ?? "";
+    const name    = item.name;
+    const raw     = item.system.details ?? "";
+    const actor   = item.actor ?? this.actor ?? null;
 
-    // Current styling is mundane, doesn't need to be complicated for now
+    // Enrich: run through enrichModWithStatusIcons so inline icons and [+]
+    // apply buttons appear in the chat card, matching how skills look.
+    const details = enrichModWithStatusIcons(raw, actor);
+
     const content = `
       <div class="sotc-passive-card">
         <h3 style="margin:0; color: black; text-shadow: 1px 1px 2px white;">
@@ -973,7 +1124,7 @@ export class SotCActorSheet extends ActorSheet {
 
     return ChatMessage.create({
       user: game.user.id,
-      speaker: ChatMessage.getSpeaker({ actor: item.actor }),
+      speaker: ChatMessage.getSpeaker({ actor }),
       content
     });
   }

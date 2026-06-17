@@ -35,7 +35,7 @@
                                 </div>
                             </div>
                             <div class="passive_right">
-                                {{{passive.system.details}}}
+                                {{{passive.detailsHTML}}}
                             </div>
                         </div>
                         <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; opacity: 0.5; margin-left: 5%">
@@ -268,7 +268,7 @@
         <div class="tab skills" data-group="primary" data-tab="skills">
             <div class="skill_list">
                 {{#each skills as |skill i| }}
-                    <div class="skill_card" data-item-id="{{skill._id}}" data-sort-order="{{i}}" draggable="true">
+                    <div class="skill_card" data-item-id="{{skill._id}}" draggable="true">
                         <div class="skill_drag_handle" data-drag="item">
                             <i class="fas fa-grip-lines fa-rotate-270"></i>
                         </div>
@@ -312,34 +312,26 @@
 
         {{!-- EGO Tab --}}
         <div class="tab ego" data-group="primary" data-tab="ego">
-
-            {{!-- Active EGO slots: one per risk tier --}}
-            <div class="ego_active_slots" style="display:flex;gap:6px;padding:6px 8px;border-bottom:2px solid #3a3050;background:#0d0b15;flex-wrap:wrap;">
-                {{#each activeEgoSlots as |slot| }}
-                    <div class="ego_active_slot" data-tier="{{slot.tier}}"
-                         style="display:flex;flex-direction:column;align-items:center;width:90px;cursor:pointer;opacity:{{#if slot.ego}}1{{else}}0.35{{/if}};"
-                         title="{{slot.tier}}{{#if slot.ego}} — {{slot.ego.name}}{{else}} — No active EGO{{/if}}">
+            {{!-- Slotted EGO bar — one slot per risk rank, left=Zayin right=Aleph --}}
+            <div class="ego_slots" style="display:flex; gap:6px; padding:6px 8px; background:#12111a; border-bottom:1px solid #3a3050; align-items:flex-start; flex-shrink:0;">
+                {{#each egoSlots as |slot|}}
+                    <div class="ego_slot" data-rank="{{slot.rank}}" style="flex:1; text-align:center; cursor:pointer; min-width:0;" title="{{slot.rank}}">
                         {{#if slot.ego}}
-                            <img src="{{slot.ego.img}}" style="width:60px;height:60px;object-fit:cover;border:2px solid #c9a227;border-radius:4px;">
-                            <span style="font-size:9px;color:#c9a227;font-weight:700;margin-top:2px;">{{slot.tier}}</span>
-                            <span style="font-size:10px;color:#eee;text-align:center;max-width:88px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">{{slot.ego.name}}</span>
+                            <img src="{{slot.ego.img}}" title="{{slot.ego.name}} ({{slot.rank}})"
+                                style="width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:4px; border:2px solid #c9a227; display:block;">
+                            <div style="font-size:9px; color:#c9a227; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{slot.ego.name}}</div>
                         {{else}}
-                            <div style="width:60px;height:60px;border:2px dashed #444;border-radius:4px;display:flex;align-items:center;justify-content:center;">
-                                <i class="fas fa-plus" style="color:#444;font-size:18px;"></i>
+                            <div style="width:100%; padding-top:100%; position:relative; border:2px dashed #3a3050; border-radius:4px; box-sizing:border-box;">
+                                <span style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#444; font-size:18px; line-height:1;">+</span>
                             </div>
-                            <span style="font-size:9px;color:#555;font-weight:700;margin-top:2px;">{{slot.tier}}</span>
-                            <span style="font-size:9px;color:#555;">Empty</span>
+                            <div style="font-size:9px; color:#444; margin-top:2px; text-transform:uppercase; letter-spacing:0.05em;">{{slot.rank}}</div>
                         {{/if}}
-                        <a class="ego_slot_clear" data-tier="{{slot.tier}}" style="font-size:9px;color:#555;margin-top:1px;{{#unless slot.ego}}display:none;{{/unless}}">✕ clear</a>
                     </div>
                 {{/each}}
             </div>
-
-            {{!-- Full EGO list --}}
             <div class="ego_list">
                 {{#each egos as |ego i| }}
-                    <div class="ego_container {{#if ego.isActiveSlot}}ego-active-highlight{{/if}}" data-item-id="{{ego._id}}" data-sort-order="{{i}}" draggable="true" style="position:relative;">
-                        <div class="ego_drag_handle" style="cursor:grab;color:#888;font-size:11px;text-align:center;margin-bottom:2px;"><i class="fas fa-grip-horizontal"></i></div>
+                    <div class="ego_container">
                         <input type="text" name="items.{{ego._id}}.system.risk" value="{{ego.system.risk}}" placeholder="ZAYIN..." style="height:10%; width:100%; border-color: black;"/>
                         <div class="skill_card" data-item-id="{{ego._id}}">
                             <div class="skill_mini_image_background">
@@ -358,17 +350,12 @@
                                 <img class="skill_emotion_icon" src="systems/sotc/assets/sheets/skills/SkillEmotionIcon.png">
                                 <h4 class="skill_emotion_char">{{ego.system.emotion_cost}}</h4>
                             {{/if}}
-                            <div class="edit_and_delete">
+                            <div class="edit_and_delete"> 
                                 <a class="skill_card-control edit-skill_card"><i class="fas fa-edit"></i></a>
                                 <a class="skill_card-control duplicate-skill_card"><i class="fas fa-clone"></i></a>
                                 <a class="skill_card-control delete-skill_card"><i class="fas fa-trash"></i></a>
+                                <a class="ego-slot-btn" data-item-id="{{ego._id}}" data-risk="{{ego.system.risk}}" title="Slot this EGO" style="cursor:pointer;"><i class="fas fa-compress-arrows-alt"></i></a>
                             </div>
-                            {{!-- Set as active for this tier --}}
-                            <a class="ego_card-control set-active-ego" data-item-id="{{ego._id}}" data-tier="{{ego.riskTier}}"
-                               title="Set as active {{ego.riskTier}} EGO"
-                               style="position:absolute;top:2px;right:2px;font-size:13px;cursor:pointer;color:{{#if ego.isActiveSlot}}#f9c74f{{else}}#444{{/if}};">
-                                <i class="fas fa-crown"></i>
-                            </a>
                         </div>
                         <input type="text" name="items.{{ego._id}}.system.passive_name" value="{{ego.system.passive_name}}" placeholder="EGO Passive" style="height:10%; width:100%; border-color: black;"/>
                         <textarea name="items.{{ego._id}}.system.passive" placeholder="Details..." style="height: 40%">{{ego.system.passive}}</textarea>
@@ -380,6 +367,7 @@
                     </div>
                 </div>
             </div>
+            </div>{{!-- end ego_list --}}
         </div>
 
         {{!-- Passives Tab --}}
@@ -403,7 +391,7 @@
                                 </div>
                             </div>
                             <div class="passive_right">
-                                {{{passive.enrichedDetails}}}
+                                {{{passive.detailsHTML}}}
                             </div>
                         </div>
                         <hr style="width: 90%; border: 1px solid white; margin-top: 8px; margin-bottom: 8px; opacity: 0.5; margin-left: 5%">

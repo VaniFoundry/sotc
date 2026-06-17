@@ -5,7 +5,7 @@ import {ATTRIBUTE_TYPES} from "./constants.js";
  * Extend the basic ItemSheet with some very simple modifications
  * @extends {ItemSheet}
  */
-export class SotCPassiveSheet extends foundry.appv1.sheets.ItemSheet {
+export class SotCPassiveSheet extends ItemSheet {
 
   /** @inheritdoc */
   static get defaultOptions() {
@@ -31,13 +31,12 @@ export class SotCPassiveSheet extends foundry.appv1.sheets.ItemSheet {
     const fv = game.version ?? game?.data?.version;
     const use_v13 = foundry.utils.isNewerVersion(fv, "12.999");
     if (use_v13) {
-      context.detailsHTML = enrichModWithStatusIcons(context.systemData.details ?? "", this.actor);
+      context.detailsHTML = context.systemData.details
     } else {
-      const enriched = await TextEditor.enrichHTML(context.systemData.details ?? "", {
+      context.detailsHTML = await TextEditor.enrichHTML(context.systemData.details ?? "", {
         secrets: this.document.isOwner,
         async: true
       });
-      context.detailsHTML = enrichModWithStatusIcons(enriched, this.actor);
     }
     return context;
   }
@@ -55,11 +54,10 @@ export class SotCPassiveSheet extends foundry.appv1.sheets.ItemSheet {
   }
 
   async _printPassive(item) {
-    const name = item.name;
-    const rawDetails = item.system.details ?? "";
-    // Enrich details with status icons so keywords like "Burn", "Bleed" show inline icons
-    const actor = item.actor ?? game.actors.find(a => a.items.has(item.id));
-    const details = enrichModWithStatusIcons(rawDetails, actor);
+    const name   = item.name;
+    const raw    = item.system.details ?? "";
+    const actor  = item.actor ?? null;
+    const details = enrichModWithStatusIcons(raw, actor);
 
     const content = `
       <div class="sotc-passive-card">
@@ -72,7 +70,7 @@ export class SotCPassiveSheet extends foundry.appv1.sheets.ItemSheet {
 
     return ChatMessage.create({
       user: game.user.id,
-      speaker: ChatMessage.getSpeaker({ actor: item.actor }),
+      speaker: ChatMessage.getSpeaker({ actor }),
       content
     });
   }
